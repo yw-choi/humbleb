@@ -299,6 +299,35 @@ export async function swapPlayers(
   });
 }
 
+// History
+export async function getPastSchedules(): Promise<Schedule[]> {
+  return fetchAPI<Schedule[]>("/schedules/history");
+}
+
+// Member stats
+export interface MemberStats {
+  id: string;
+  name: string;
+  gender: "M" | "F";
+  ntrp: number;
+  internal_rating: number;
+  total_games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number;
+}
+
+export async function getMemberStats(): Promise<MemberStats[]> {
+  return fetchAPI<MemberStats[]>("/members/stats");
+}
+
+// Match image URL
+export function getMatchImageUrl(scheduleId: string): string {
+  const token = getToken();
+  return `${API_URL}/schedules/${scheduleId}/matches/image${token ? `?token=${token}` : ""}`;
+}
+
 // Game results
 export async function submitScore(
   gameId: string,

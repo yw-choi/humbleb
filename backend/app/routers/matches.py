@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -486,3 +487,70 @@ async def submit_result(
         score_a=game.score_a,
         score_b=game.score_b,
     )
+
+
+@router.get("/schedules/{schedule_id}/matches/image")
+async def get_match_image(
+    schedule_id: uuid.UUID,
+    member: Member = Depends(get_current_member),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a PNG image of the matchmaking for sharing."""
+    from app.services.match_image import GameInfo, RoundInfo, generate_match_image
+
+    # Get schedule info
+    sched_result = await db.execute(select(Schedule).where(Schedule.id == schedule_id))
+    schedule = sched_result.scalar_one_or_none()
+    if not schedule:
+        raise HTTPException(404, "Schedule not found")
+
+    # Get matchmaking (prefer CONFIRMED)
+    query = select(Matchmaking).where(Matchmaking.schedule_id == schedule_id)
+    if not member.is_admin:
+        query = query.where(Matchmaking.status == MatchmakingStatus.CONFIRMED)
+    query = query.order_by(Matchmaking.created_at.desc())
+    result = await db.execute(query)
+    mm = result.scalar_one_or_none()
+    if not mm:
+        raise HTTPException(404, "No matchmaking found")
+
+    # Build name lookup
+    members_result = await db.execute(select(Member))
+    name_lookup = {str(m.id): m.name for m in members_result.scalars().all()}
+    guests_result = await db.execute(select(Guest).where(Guest.schedule_id == schedule_id))
+    for g in guests_result.scalars().all():
+        name_lookup[str(g.id)] = g.name
+
+    # Load rounds
+    rounds_result = await db.execute(
+        select(MatchRound).where(MatchRound.matchmaking_id == mm.id).order_by(MatchRound.round_number)
+    )
+    rounds_info: list[RoundInfo] = []
+    for rnd in rounds_result.scalars().all():
+        games_result = await db.execute(
+            select(Game).where(Game.round_id == rnd.id).order_by(Game.court)
+        )
+        games_info: list[GameInfo] = []
+        for game in games_result.scalars().all():
+            games_info.append(GameInfo(
+                court=game.court,
+                team_a=(
+                    name_lookup.get(str(game.team_a_player1_id), "?"),
+                    name_lookup.get(str(game.team_a_player2_id), "?"),
+                ),
+                team_b=(
+                    name_lookup.get(str(game.team_b_player1_id), "?"),
+                    name_lookup.get(str(game.team_b_player2_id), "?"),
+                ),
+                score_a=game.score_a,
+                score_b=game.score_b,
+            ))
+        rounds_info.append(RoundInfo(round_number=rnd.round_number, games=games_info))
+
+    weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
+    wd = weekday_names[schedule.date.weekday()]
+    title = f"HumbleB 대진표"
+    subtitle = f"{schedule.date.month}/{schedule.date.day} ({wd}) {schedule.start_time.strftime('%H:%M')}~{schedule.end_time.strftime('%H:%M')} {schedule.venue}"
+
+    image_bytes = generate_match_image(title, subtitle, rounds_info)
+    return Response(content=image_bytes, media_type="image/png")

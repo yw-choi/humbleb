@@ -16,6 +16,7 @@ import {
   getMatches,
   getAttendees,
   clearToken,
+  getMatchImageUrl,
   type Schedule,
   type Guest,
   type ScheduleCreateBody,
@@ -609,6 +610,15 @@ function AdminScheduleCard({
               >
                 대진표 확정
               </button>
+            )}
+            {matchmaking.status === "CONFIRMED" && (
+              <a
+                href={getMatchImageUrl(schedule.id)}
+                download={`대진표_${schedule.date}.png`}
+                className="touch-active mt-2 flex h-14 w-full items-center justify-center rounded-xl bg-muted text-base font-semibold"
+              >
+                이미지 다운로드
+              </a>
             )}
           </div>
         )}

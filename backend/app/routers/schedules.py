@@ -74,6 +74,28 @@ async def upcoming_schedules(
     return results
 
 
+@router.get("/history", response_model=list[ScheduleOut])
+async def past_schedules(
+    db: AsyncSession = Depends(get_db),
+):
+    """List past schedules with attendance counts, most recent first."""
+    today = date.today()
+    schedules = await db.execute(
+        select(Schedule)
+        .where(Schedule.date < today)
+        .order_by(Schedule.date.desc(), Schedule.start_time.desc())
+        .limit(50)
+    )
+    results = []
+    for schedule in schedules.scalars().all():
+        status, count = await evaluate_and_update(schedule, db)
+        out = ScheduleOut.model_validate(schedule)
+        out.attendance_count = count
+        results.append(out)
+    await db.commit()
+    return results
+
+
 @router.get("/{schedule_id}", response_model=ScheduleOut)
 async def get_schedule(
     schedule_id: uuid.UUID,

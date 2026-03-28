@@ -29,7 +29,9 @@ function Header({
         <span className="text-lg font-bold">HumbleB</span>
       </div>
       {name && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <a href="/history" className="text-sm text-muted-fg hover:text-foreground">기록</a>
+          <a href="/stats" className="text-sm text-muted-fg hover:text-foreground">통계</a>
           <span className="text-sm text-muted-fg">{name}</span>
           <button
             onClick={onLogout}
