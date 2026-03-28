@@ -129,3 +129,89 @@ export async function cancelAttendance(scheduleId: string): Promise<void> {
 export async function getAttendees(scheduleId: string): Promise<Attendance[]> {
   return fetchAPI<Attendance[]>(`/schedules/${scheduleId}/attendees`);
 }
+
+// Admin: Schedule CRUD
+export interface ScheduleCreateBody {
+  title: string;
+  date: string; // YYYY-MM-DD
+  start_time: string; // HH:MM:SS
+  end_time: string;
+  venue: string;
+  court_count?: number;
+  capacity?: number;
+  repeat_weeks?: number;
+}
+
+export interface ScheduleUpdateBody {
+  title?: string;
+  schedule_date?: string;
+  start_time?: string;
+  end_time?: string;
+  venue?: string;
+  court_count?: number;
+  capacity?: number;
+}
+
+export async function createSchedule(
+  body: ScheduleCreateBody,
+): Promise<Schedule[]> {
+  return fetchAPI<Schedule[]>("/schedules/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateSchedule(
+  id: string,
+  body: ScheduleUpdateBody,
+): Promise<Schedule> {
+  return fetchAPI<Schedule>(`/schedules/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  await fetchAPI(`/schedules/${id}`, { method: "DELETE" });
+}
+
+// Admin: Guest
+export interface Guest {
+  id: string;
+  schedule_id: string;
+  name: string;
+  gender: "M" | "F";
+  estimated_skill: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+  registered_by: string;
+}
+
+export interface GuestCreateBody {
+  name: string;
+  gender: "M" | "F";
+  estimated_skill: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+}
+
+export async function registerGuest(
+  scheduleId: string,
+  body: GuestCreateBody,
+): Promise<Guest> {
+  return fetchAPI<Guest>(`/schedules/${scheduleId}/guests`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getGuests(scheduleId: string): Promise<Guest[]> {
+  return fetchAPI<Guest[]>(`/schedules/${scheduleId}/guests`);
+}
+
+export async function deleteGuest(guestId: string): Promise<void> {
+  await fetchAPI(`/guests/${guestId}`, { method: "DELETE" });
+}
+
+// Share text
+export async function getShareText(
+  scheduleId: string,
+): Promise<{ text: string }> {
+  return fetchAPI<{ text: string }>(`/schedules/${scheduleId}/share-text`);
+}
