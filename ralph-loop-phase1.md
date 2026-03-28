@@ -19,12 +19,12 @@ API base URL: https://vesper.sogang.ac.kr/humbleb/api/
 - [x] Kakao OAuth authentication (login/logout, JWT httpOnly cookie, redirect URI: https://vesper.sogang.ac.kr/humbleb/api/auth/kakao/callback) (completed iter 2)
 - [x] Member seed data (30 members) and first-login kakao-member linking API (completed iter 2, seed data next)
 - [x] Schedule and attendance APIs (upcoming schedules, attend with full/late/early, cancel, capacity enforcement) (completed iter 2)
-- [ ] Next.js project setup with Tailwind CSS, mobile-first layout, API client
-- [ ] Kakao login flow in frontend (login button, OAuth redirect, member linking on first login)
-- [ ] Main page: schedule card list with status badges, attendance count, attend/cancel buttons
-- [ ] Attendance bottom sheet (full/late/early selection), optimistic UI with rollback on failure
-- [ ] Schedule detail page with participant list (name, time slot, comment)
-- [ ] Skeleton screens for loading states, toast notifications for errors/success
+- [x] Next.js project setup with Tailwind CSS, mobile-first layout, API client (completed iter 3)
+- [x] Kakao login flow in frontend (login button, OAuth redirect, member linking on first login) (completed iter 3)
+- [x] Main page: schedule card list with status badges, attendance count, attend/cancel buttons (completed iter 3)
+- [x] Attendance bottom sheet (full/late/early selection), optimistic UI with rollback on failure (completed iter 3)
+- [x] Schedule detail page with participant list (name, time slot, comment) (completed iter 3)
+- [x] Skeleton screens for loading states, toast notifications for errors/success (completed iter 3)
 # Quality Gates
 - `cd backend && python -m pytest tests/ -v`: All backend tests pass
 - `cd frontend && npx tsc --noEmit`: TypeScript strict mode, no errors
@@ -57,3 +57,18 @@ API base URL: https://vesper.sogang.ac.kr/humbleb/api/
   - seed.py: 30 members seeded (18M, 12F, 2 admins)
   - All tests pass (6), ruff clean
 - **Next**: Frontend setup (Goal 5-10)
+
+## Iteration 3
+- **Goals**: Frontend setup — all 6 remaining goals
+- **Result**: Success
+- **Done**:
+  - Next.js 16 + Tailwind CSS + TypeScript (Node 22 via nvm)
+  - lib/api.ts: full API client with types, error handling
+  - lib/useAuth.ts: auth state hook (loading/unauthenticated/unlinked/authenticated)
+  - components: ScheduleCard, BottomSheet, MemberPicker, Skeleton, Toast
+  - pages: main (login/member-pick/schedule-list), auth/callback, schedule/[id] detail
+  - Mobile-first: dvh, 48px touch targets, 16px font, single column
+  - BottomSheet for attendance type selection (full/late/early)
+  - Skeleton screens, toast notifications (success 2s, error 4s)
+  - ESLint + TSC passing
+- **Notes**: Next.js 16 removed `next lint`, use `npx eslint src/` instead. nvm needed for Node 22.
