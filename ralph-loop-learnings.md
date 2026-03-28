@@ -87,3 +87,28 @@
 - Guest players get default 1500 rating but their rating doesn't persist — no Guest.internal_rating field
 
 ---
+
+## Phase 5: Polish
+
+**Goals defined:** 4
+**Iterations needed:** 1
+**Quality gates:** `pytest tests/ -v`, `npx tsc --noEmit`
+
+### What worked
+- Mobile audit found zero issues — earlier phases already followed specs (dvh, 16px, 48px targets)
+- Pillow is available system-wide, no extra install needed
+- Stats aggregation via single DB query + in-memory calculation — fast enough for 30 members
+- History page is trivially a reversed query of the upcoming endpoint
+
+### What didn't work
+- Noto CJK font path varies across Linux distros — needed fallback chain for Pillow text rendering
+- Match image endpoint uses Bearer token but `<a href>` download links can't send headers — auth needs query param fallback (noted, not critical for admin-only use)
+
+### Overall Ralph Loop retrospective (all 5 phases)
+- Total iterations: 5 (1 per phase)
+- Total tests: 40 backend + tsc frontend
+- All phases completed in single iterations — well-scoped goals from PLAN.md
+- `pytest + tsc` is the right minimum gate combination for this stack
+- FakeDataclass pattern consistently useful for unit testing without DB
+
+---
