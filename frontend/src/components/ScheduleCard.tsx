@@ -103,6 +103,7 @@ export function ScheduleCard({
 }: ScheduleCardProps) {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
   const variant = getVariant(schedule, isAttending);
   const styles = VARIANT_STYLES[variant];
 
@@ -135,7 +136,7 @@ export function ScheduleCard({
 
   const handleButtonClick = () => {
     if (isAttending) {
-      handleCancel();
+      setCancelConfirm(true);
     } else {
       setModalOpen(true);
     }
@@ -271,6 +272,31 @@ export function ScheduleCard({
               </svg>
             </button>
           ))}
+        </div>
+      </CenterModal>
+
+      {/* Cancel confirmation modal */}
+      <CenterModal open={cancelConfirm} onClose={() => setCancelConfirm(false)}>
+        <h3 className="mb-1 text-lg font-bold">참가 취소</h3>
+        <p className="mb-5 text-sm text-muted-fg">
+          {dateStr}({weekday}) {timeStr} 참가를 취소하시겠습니까?
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setCancelConfirm(false)}
+            className="btn-press flex h-12 flex-1 items-center justify-center rounded-xl bg-muted text-sm font-semibold"
+          >
+            아니오
+          </button>
+          <button
+            onClick={() => {
+              setCancelConfirm(false);
+              handleCancel();
+            }}
+            className="btn-press flex h-12 flex-1 items-center justify-center rounded-xl bg-red-600 text-sm font-semibold text-white"
+          >
+            취소하기
+          </button>
         </div>
       </CenterModal>
     </>
