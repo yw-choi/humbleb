@@ -251,8 +251,9 @@ updated_at: datetime
 
 ```
 GET    /api/auth/kakao           — 카카오 OAuth 로그인 URL 반환
-GET    /api/auth/kakao/callback  — 카카오 콜백 → JWT 발급 → 쿠키 세팅
+GET    /api/auth/kakao/callback  — 카카오 콜백 → JWT 발급 → 쿠키 세팅 → 프론트 리다이렉트
 POST   /api/auth/logout          — 세션 쿠키 삭제
+# Redirect URI: https://vesper.sogang.ac.kr/humbleb/api/auth/kakao/callback
 ```
 
 #### 멤버
@@ -413,8 +414,10 @@ for each round:
 
 ### 인프라
 
-- 프론트: Vercel
-- 백엔드 + DB: Railway (기존 인프라 활용)
+- 프론트: Vercel (무료, Next.js 풀 기능)
+- 백엔드: vesper.sogang.ac.kr (FastAPI, localhost:8200 → nginx HTTPS 프록시)
+  - URL: https://vesper.sogang.ac.kr/humbleb/api/
+- DB: vesper PostgreSQL
 
 ### 프로젝트 구조
 
@@ -526,3 +529,56 @@ humbleb/
 - **컨텍스트 어웨어**: 시간대에 따라 필요한 화면이 자동으로 올라옴
 - **모바일 퍼스트**: 폰에서 카톡 링크 타고 들어오는 게 주 사용 패턴
 - **카톡 공존**: 카톡 단톡방을 대체하지 않음. 링크 공유 채널로만 활용.
+
+---
+
+## 10. UI/UX 상세 스펙
+
+### 모바일 레이아웃
+- 단일 컬럼 레이아웃 (사이드바 없음)
+- 뷰포트 단위: `dvh` 사용 (`vh` 금지 — 카톡 인앱 브라우저 URL바 문제)
+- 카드 기반 UI: full-width, 좌우 16px 마진
+- 폰트 최소 16px (input 필드 — iOS 자동줌 방지)
+
+### 터치 타겟
+- 최소 탭 영역: 48×48px
+- 인터랙티브 요소 간 최소 간격: 8px
+- 버튼 높이: 48-56px
+- 리스트 아이템 최소 높이: 56px
+
+### 참가 신청 인터랙션
+- **Optimistic UI**: 참가 탭 → 즉시 UI 반영 (인원수 증가, 버튼 상태 변경) → 서버 호출
+- 서버 실패 시: 롤백 + 토스트 ("참가 신청 실패. 다시 시도해주세요.")
+- 탭 디바운스: 300ms
+- 토스트: 하단 표시, 에러 4초 / 성공 2초
+
+### 로딩 상태
+- 0-300ms: 아무것도 안 보여줌
+- 300ms+: 스켈레톤 스크린 (shimmer 애니메이션)
+- 빈 화면 금지
+
+### 바텀시트 (모바일 모달 대체)
+- 용도: 참가 타입 선택, 제약조건 추가, 필터 등
+- 최대 높이: 90vh (배경 10% 항상 노출)
+- 상단 핸들바: 32px × 4px, 가운데 정렬
+- 배경 스크림: rgba(0,0,0,0.5), 탭하면 닫힘
+- 파괴적 작업(삭제 등)만 센터 모달 다이얼로그 사용
+
+### 카카오톡 인앱 브라우저 대응
+- `position: fixed` 키보드 열릴 때 깨짐 → `position: sticky` 또는 `visualViewport` API
+- `window.open()` 차단됨 → `location.href` 사용
+- `localStorage` 불안정 → 쿠키 폴백
+- `alert()`/`confirm()` 사용 금지 → 커스텀 모달
+- 서비스워커 미지원 → PWA 오프라인 기능 의존 금지
+- 감지: `navigator.userAgent.includes('KAKAOTALK')`
+- "브라우저에서 열기" 버튼 제공
+
+### 운영진 UI
+- 별도 앱 분리하지 않음. 같은 앱에서 `is_admin` 기반 컨텍스트 노출
+- 운영진 전용 액션: 오버플로우 메뉴(⋮) 또는 스와이프로 노출
+- 대진표 수정: 드래그앤드롭 (터치 롱프레스 500ms 후 드래그)
+
+### 스코어 입력
+- `inputmode="numeric"` (숫자 키패드)
+- 큰 탭 영역 (56px × 56px)
+- 입력 즉시 반영 (optimistic)
