@@ -4,14 +4,14 @@ from datetime import date, time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_admin
 from app.database import get_db
-from app.models.attendance import Attendance
 from app.models.member import Member
 from app.models.schedule import Schedule
+from app.services.schedule_status import evaluate_and_update
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
 
@@ -45,7 +45,7 @@ class ScheduleCreate(BaseModel):
 async def upcoming_schedules(
     db: AsyncSession = Depends(get_db),
 ):
-    """List upcoming schedules with attendance counts."""
+    """List upcoming schedules with attendance counts. Excludes past schedules."""
     today = date.today()
     schedules = await db.execute(
         select(Schedule)
@@ -54,13 +54,11 @@ async def upcoming_schedules(
     )
     results = []
     for schedule in schedules.scalars().all():
-        count_result = await db.execute(
-            select(func.count()).where(Attendance.schedule_id == schedule.id)
-        )
-        count = count_result.scalar() or 0
+        status, count = await evaluate_and_update(schedule, db)
         out = ScheduleOut.model_validate(schedule)
         out.attendance_count = count
         results.append(out)
+    await db.commit()
     return results
 
 
@@ -73,11 +71,10 @@ async def get_schedule(
     schedule = result.scalar_one_or_none()
     if not schedule:
         raise HTTPException(404, "Schedule not found")
-    count_result = await db.execute(
-        select(func.count()).where(Attendance.schedule_id == schedule.id)
-    )
+    status, count = await evaluate_and_update(schedule, db)
+    await db.commit()
     out = ScheduleOut.model_validate(schedule)
-    out.attendance_count = count_result.scalar() or 0
+    out.attendance_count = count
     return out
 
 

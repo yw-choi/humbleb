@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.attendance import Attendance, AttendanceType
 from app.models.member import Member
 from app.models.schedule import Schedule, ScheduleStatus
+from app.services.schedule_status import evaluate_and_update
 
 router = APIRouter(prefix="/schedules", tags=["attendance"])
 
@@ -62,6 +63,9 @@ async def attend(
     schedule = result.scalar_one_or_none()
     if not schedule:
         raise HTTPException(404, "Schedule not found")
+
+    # Lazy evaluate status
+    await evaluate_and_update(schedule, db)
 
     # Check status
     if schedule.status == ScheduleStatus.CLOSED:
@@ -122,6 +126,9 @@ async def cancel_attendance(
     schedule = result.scalar_one_or_none()
     if not schedule:
         raise HTTPException(404, "Schedule not found")
+
+    # Lazy evaluate status
+    await evaluate_and_update(schedule, db)
 
     if schedule.status == ScheduleStatus.CLOSED:
         raise HTTPException(403, "Cannot cancel after registration closed")
