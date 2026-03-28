@@ -5,10 +5,11 @@ import { useAuth } from "@/lib/useAuth";
 import {
   getUpcomingSchedules,
   getAttendees,
+  getMatches,
   getKakaoLoginUrl,
   clearToken,
 } from "@/lib/api";
-import type { Schedule, Attendance } from "@/lib/api";
+import type { Schedule, Attendance, MatchmakingData } from "@/lib/api";
 import { ScheduleCard } from "@/components/ScheduleCard";
 import { ScheduleListSkeleton } from "@/components/Skeleton";
 import { MemberPicker } from "@/components/MemberPicker";
@@ -56,6 +57,90 @@ function Header({
   );
 }
 
+/**
+ * Check if now is within ±1 hour of a schedule's game time.
+ */
+function isGameTime(schedule: Schedule): boolean {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  if (schedule.date !== today) return false;
+
+  const [sh, sm] = schedule.start_time.split(":").map(Number);
+  const [eh, em] = schedule.end_time.split(":").map(Number);
+  const startMin = sh * 60 + sm - 60; // 1 hour before start
+  const endMin = eh * 60 + em + 60; // 1 hour after end
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  return nowMin >= startMin && nowMin <= endMin;
+}
+
+function GameTimeView({
+  schedule,
+  matchmaking,
+  onRefresh,
+}: {
+  schedule: Schedule;
+  matchmaking: MatchmakingData;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-md px-4 py-4">
+      <div className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4">
+        <h2 className="mb-1 text-base font-semibold">오늘의 대진표</h2>
+        <p className="text-sm text-muted-fg">
+          {schedule.start_time.slice(0, 5)}-{schedule.end_time.slice(0, 5)}{" "}
+          {schedule.venue}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-6">
+        {matchmaking.rounds.map((round) => (
+          <div key={round.round_number}>
+            <h3 className="mb-2 text-sm font-semibold">
+              Round {round.round_number}
+            </h3>
+            {round.games.map((game) => (
+              <div
+                key={game.id}
+                className="mb-2 rounded-xl border border-card-border bg-card p-3"
+              >
+                <div className="mb-1 text-xs text-muted-fg">
+                  Court {game.court}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 text-center text-sm font-semibold">
+                    {game.team_a_player1_name}·{game.team_a_player2_name}
+                  </div>
+                  <div className="mx-2 text-lg font-bold">
+                    {game.score_a !== null ? (
+                      <span>
+                        {game.score_a}
+                        <span className="text-muted-fg">:</span>
+                        {game.score_b}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-fg">vs</span>
+                    )}
+                  </div>
+                  <div className="flex-1 text-center text-sm font-semibold">
+                    {game.team_b_player1_name}·{game.team_b_player2_name}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <a
+        href={`/schedule/${schedule.id}/matches`}
+        className="touch-active mt-4 flex h-12 items-center justify-center rounded-xl bg-blue-600 text-base font-semibold text-white"
+      >
+        스코어 입력하기
+      </a>
+    </div>
+  );
+}
+
 export default function Home() {
   const auth = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -63,6 +148,8 @@ export default function Home() {
     Record<string, Attendance>
   >({});
   const [loading, setLoading] = useState(true);
+  const [activeGameSchedule, setActiveGameSchedule] = useState<Schedule | null>(null);
+  const [activeMatchmaking, setActiveMatchmaking] = useState<MatchmakingData | null>(null);
 
   const loadData = useCallback(async () => {
     if (auth.status !== "authenticated") return;
@@ -80,6 +167,22 @@ export default function Home() {
         if (mine) attendanceMap[upcoming[i].id] = mine;
       });
       setMyAttendances(attendanceMap);
+
+      // Context-aware: check if any schedule is in game time and user is attending
+      for (const s of upcoming) {
+        if (isGameTime(s) && attendanceMap[s.id]) {
+          try {
+            const mm = await getMatches(s.id);
+            if (mm.status === "CONFIRMED") {
+              setActiveGameSchedule(s);
+              setActiveMatchmaking(mm);
+              break;
+            }
+          } catch {
+            // No matchmaking yet — show normal view
+          }
+        }
+      }
     } catch {
       // handled by individual components
     } finally {
@@ -134,6 +237,21 @@ export default function Home() {
           <h2 className="mb-3 text-lg font-semibold">이번 주 정모</h2>
           <ScheduleListSkeleton />
         </div>
+        <ToastContainer />
+      </main>
+    );
+  }
+
+  // Context-aware: show matches during game time
+  if (activeGameSchedule && activeMatchmaking) {
+    return (
+      <main className="bg-background">
+        <Header name={auth.member.name} onLogout={handleLogout} />
+        <GameTimeView
+          schedule={activeGameSchedule}
+          matchmaking={activeMatchmaking}
+          onRefresh={loadData}
+        />
         <ToastContainer />
       </main>
     );

@@ -23,7 +23,9 @@ from app.services.matchmaking import (
     GUEST_NTRP_MAP,
 )
 
-router = APIRouter(prefix="/schedules", tags=["matches"])
+from app.services.elo import compute_rating_changes
+
+router = APIRouter(tags=["matches"])
 
 
 # --- Request/Response Models ---
@@ -83,7 +85,7 @@ class SwapIn(BaseModel):
 # --- Endpoints ---
 
 
-@router.post("/{schedule_id}/matchmaking", response_model=MatchmakingOut)
+@router.post("/schedules/{schedule_id}/matchmaking", response_model=MatchmakingOut)
 async def create_matchmaking(
     schedule_id: uuid.UUID,
     body: MatchmakingCreateIn,
@@ -231,7 +233,7 @@ async def create_matchmaking(
     )
 
 
-@router.post("/{schedule_id}/matches/confirm")
+@router.post("/schedules/{schedule_id}/matches/confirm")
 async def confirm_matchmaking(
     schedule_id: uuid.UUID,
     admin: Member = Depends(require_admin),
@@ -255,7 +257,7 @@ async def confirm_matchmaking(
     return {"status": "confirmed"}
 
 
-@router.get("/{schedule_id}/matches", response_model=MatchmakingOut)
+@router.get("/schedules/{schedule_id}/matches", response_model=MatchmakingOut)
 async def get_matches(
     schedule_id: uuid.UUID,
     member: Member = Depends(get_current_member),
@@ -327,7 +329,7 @@ async def get_matches(
     )
 
 
-@router.put("/{schedule_id}/matches/swap")
+@router.put("/schedules/{schedule_id}/matches/swap")
 async def swap_players(
     schedule_id: uuid.UUID,
     body: SwapIn,
@@ -369,3 +371,118 @@ async def swap_players(
     await db.commit()
 
     return {"status": "swapped"}
+
+
+# --- Game Results ---
+
+class ScoreIn(BaseModel):
+    score_a: int
+    score_b: int
+
+
+@router.put("/games/{game_id}/result", response_model=GameOut)
+async def submit_result(
+    game_id: uuid.UUID,
+    body: ScoreIn,
+    member: Member = Depends(get_current_member),
+    db: AsyncSession = Depends(get_db),
+):
+    """Submit or update game score. Allowed for participants and admins."""
+    result = await db.execute(select(Game).where(Game.id == game_id))
+    game = result.scalar_one_or_none()
+    if not game:
+        raise HTTPException(404, "Game not found")
+
+    # Check authorization: admin or one of the 4 participants
+    player_ids = {
+        str(game.team_a_player1_id),
+        str(game.team_a_player2_id),
+        str(game.team_b_player1_id),
+        str(game.team_b_player2_id),
+    }
+    if not member.is_admin and str(member.id) not in player_ids:
+        raise HTTPException(403, "Only participants or admin can submit scores")
+
+    had_score = game.score_a is not None
+
+    game.score_a = body.score_a
+    game.score_b = body.score_b
+    game.submitted_by = member.id
+    db.add(game)
+
+    # Update ELO ratings for MEMBER players (not guests)
+    async def get_member_rating(player_id: uuid.UUID, player_type: str) -> float | None:
+        if player_type != "MEMBER":
+            return None
+        r = await db.execute(select(Member).where(Member.id == player_id))
+        m = r.scalar_one_or_none()
+        return m.internal_rating if m else None
+
+    # Collect ratings
+    types = {
+        "a1": (game.team_a_player1_id, game.team_a_player1_type.value),
+        "a2": (game.team_a_player2_id, game.team_a_player2_type.value),
+        "b1": (game.team_b_player1_id, game.team_b_player1_type.value),
+        "b2": (game.team_b_player2_id, game.team_b_player2_type.value),
+    }
+
+    ratings: dict[str, float] = {}
+    member_objs: dict[str, Member] = {}
+    for key, (pid, ptype) in types.items():
+        if ptype == "MEMBER":
+            r = await db.execute(select(Member).where(Member.id == pid))
+            m = r.scalar_one_or_none()
+            if m:
+                ratings[key] = m.internal_rating
+                member_objs[key] = m
+            else:
+                ratings[key] = 1500.0
+        else:
+            ratings[key] = 1500.0  # Guests don't affect rating
+
+    # Compute new ratings
+    new_a1, new_a2, new_b1, new_b2 = compute_rating_changes(
+        (ratings["a1"], ratings["a2"]),
+        (ratings["b1"], ratings["b2"]),
+        body.score_a,
+        body.score_b,
+    )
+
+    # Update member ratings
+    for key, new_rating in [("a1", new_a1), ("a2", new_a2), ("b1", new_b1), ("b2", new_b2)]:
+        if key in member_objs:
+            member_objs[key].internal_rating = round(new_rating, 1)
+            db.add(member_objs[key])
+
+    await db.commit()
+
+    # Build name lookup for response
+    members_result = await db.execute(select(Member))
+    name_lookup = {str(m.id): m.name for m in members_result.scalars().all()}
+    # Get schedule_id from round → matchmaking
+    round_result = await db.execute(select(MatchRound).where(MatchRound.id == game.round_id))
+    rnd = round_result.scalar_one()
+    mm_result = await db.execute(select(Matchmaking).where(Matchmaking.id == rnd.matchmaking_id))
+    mm = mm_result.scalar_one()
+    guests_result = await db.execute(select(Guest).where(Guest.schedule_id == mm.schedule_id))
+    for g in guests_result.scalars().all():
+        name_lookup[str(g.id)] = g.name
+
+    return GameOut(
+        id=str(game.id),
+        court=game.court,
+        team_a_player1_id=str(game.team_a_player1_id),
+        team_a_player2_id=str(game.team_a_player2_id),
+        team_b_player1_id=str(game.team_b_player1_id),
+        team_b_player2_id=str(game.team_b_player2_id),
+        team_a_player1_type=game.team_a_player1_type.value,
+        team_a_player2_type=game.team_a_player2_type.value,
+        team_b_player1_type=game.team_b_player1_type.value,
+        team_b_player2_type=game.team_b_player2_type.value,
+        team_a_player1_name=name_lookup.get(str(game.team_a_player1_id), "?"),
+        team_a_player2_name=name_lookup.get(str(game.team_a_player2_id), "?"),
+        team_b_player1_name=name_lookup.get(str(game.team_b_player1_id), "?"),
+        team_b_player2_name=name_lookup.get(str(game.team_b_player2_id), "?"),
+        score_a=game.score_a,
+        score_b=game.score_b,
+    )

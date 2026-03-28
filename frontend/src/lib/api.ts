@@ -298,3 +298,15 @@ export async function swapPlayers(
     }),
   });
 }
+
+// Game results
+export async function submitScore(
+  gameId: string,
+  scoreA: number,
+  scoreB: number,
+): Promise<GameData> {
+  return fetchAPI<GameData>(`/games/${gameId}/result`, {
+    method: "PUT",
+    body: JSON.stringify({ score_a: scoreA, score_b: scoreB }),
+  });
+}
