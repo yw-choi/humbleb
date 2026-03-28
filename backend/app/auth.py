@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,11 +32,13 @@ def decode_jwt(token: str) -> dict:
 
 
 async def get_current_kakao_id(
-    humbleb_token: str | None = Cookie(None),
+    request: Request,
 ) -> str:
-    if not humbleb_token:
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
         raise HTTPException(401, "Not authenticated")
-    payload = decode_jwt(humbleb_token)
+    token = auth_header[7:]
+    payload = decode_jwt(token)
     return payload["kakao_id"]
 
 

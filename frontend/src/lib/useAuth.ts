@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getMe, type Member, APIError } from "./api";
+import { getMe, getToken, clearToken, type Member, APIError } from "./api";
 
 type AuthState =
   | { status: "loading" }
@@ -14,15 +14,23 @@ export function useAuth() {
   const didFetch = useRef(false);
 
   const refresh = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
+      setState({ status: "unauthenticated" });
+      return;
+    }
     try {
       const member = await getMe();
       setState({ status: "authenticated", member });
     } catch (e) {
       if (e instanceof APIError) {
         if (e.status === 401) {
+          clearToken();
           setState({ status: "unauthenticated" });
         } else if (e.status === 403) {
           setState({ status: "unlinked" });
+        } else {
+          setState({ status: "unauthenticated" });
         }
       } else {
         setState({ status: "unauthenticated" });
@@ -33,14 +41,24 @@ export function useAuth() {
   useEffect(() => {
     if (didFetch.current) return;
     didFetch.current = true;
-    // fetch auth state on mount via external API call
+
+    const token = getToken();
+    if (!token) {
+      setState({ status: "unauthenticated" });
+      return;
+    }
     getMe()
       .then((member) => setState({ status: "authenticated", member }))
       .catch((e) => {
         if (e instanceof APIError) {
-          if (e.status === 401) setState({ status: "unauthenticated" });
-          else if (e.status === 403) setState({ status: "unlinked" });
-          else setState({ status: "unauthenticated" });
+          if (e.status === 401) {
+            clearToken();
+            setState({ status: "unauthenticated" });
+          } else if (e.status === 403) {
+            setState({ status: "unlinked" });
+          } else {
+            setState({ status: "unauthenticated" });
+          }
         } else {
           setState({ status: "unauthenticated" });
         }

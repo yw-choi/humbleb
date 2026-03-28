@@ -2,13 +2,18 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { setToken } from "@/lib/api";
 
 export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    // JWT is already set as httpOnly cookie by the backend redirect.
-    // Just redirect to home.
+    // Token is passed via URL fragment: /auth/callback#token=xxx
+    const hash = window.location.hash;
+    const match = hash.match(/token=([^&]+)/);
+    if (match) {
+      setToken(match[1]);
+    }
     router.replace("/");
   }, [router]);
 

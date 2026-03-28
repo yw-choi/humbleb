@@ -1,11 +1,33 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8200";
 
+const TOKEN_KEY = "humbleb_token";
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
-    credentials: "include",
     headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
+      ...headers,
+      ...(options?.headers as Record<string, string>),
     },
     ...options,
   });

@@ -17,13 +17,13 @@ KAKAO_USER_URL = "https://kapi.kakao.com/v2/user/me"
 
 @router.get("/kakao")
 async def kakao_login():
-    """Return Kakao OAuth authorization URL."""
+    """Redirect to Kakao OAuth authorization page."""
     params = urlencode({
         "client_id": settings.KAKAO_CLIENT_ID,
         "redirect_uri": settings.KAKAO_REDIRECT_URI,
         "response_type": "code",
     })
-    return {"url": f"{KAKAO_AUTH_URL}?{params}"}
+    return RedirectResponse(f"{KAKAO_AUTH_URL}?{params}")
 
 
 @router.get("/kakao/callback")
@@ -60,26 +60,12 @@ async def kakao_callback(code: str = Query(...)):
 
     kakao_id = str(user_resp.json()["id"])
 
-    # 3. Issue JWT (member_id will be added after linking)
+    # 3. Issue JWT and pass via URL fragment (not query param, so it stays client-side)
     token = create_jwt(kakao_id)
-
-    # 4. Redirect to frontend with httpOnly cookie
-    response = RedirectResponse(f"{settings.FRONTEND_URL}/auth/callback")
-    response.set_cookie(
-        key="humbleb_token",
-        value=token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        max_age=settings.JWT_EXPIRE_HOURS * 3600,
-        path="/",
-    )
-    return response
+    return RedirectResponse(f"{settings.FRONTEND_URL}/auth/callback#token={token}")
 
 
 @router.post("/logout")
 async def logout():
-    """Clear session cookie."""
-    response = RedirectResponse(settings.FRONTEND_URL, status_code=303)
-    response.delete_cookie("humbleb_token", path="/")
-    return response
+    """No-op. Token is stored client-side in localStorage."""
+    return {"status": "ok"}

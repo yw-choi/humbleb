@@ -36,13 +36,20 @@ async def test_me_unlinked():
     """Authenticated but kakao_id not linked to any member → 403."""
     token = create_jwt("unlinked_kakao_id")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/members/me", cookies={"humbleb_token": token})
+        resp = await client.get(
+            "/members/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
     assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_kakao_login_returns_url():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+async def test_kakao_login_redirects():
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        follow_redirects=False,
+    ) as client:
         resp = await client.get("/auth/kakao")
-    assert resp.status_code == 200
-    assert "kauth.kakao.com" in resp.json()["url"]
+    assert resp.status_code == 307
+    assert "kauth.kakao.com" in resp.headers["location"]
