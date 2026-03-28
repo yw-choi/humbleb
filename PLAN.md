@@ -511,13 +511,13 @@ humbleb/
 8. ✅ upcoming API에서 지난 일정 제외 (오늘 기준)
 9. 인프라: vesper 배포 (systemd + nginx) + Vercel 배포 완료
 
-### Phase 2: 운영진 기능
+### Phase 2: 운영진 기능 ✅
 
-7. 운영진 페이지: 일정 CRUD
-8. 반복일정 생성
-9. 게스트 등록
-10. APScheduler 보조 상태 전환 (lazy evaluation 외 추가 정합성)
-11. 카톡 공유용 정모 안내 텍스트 복사 버튼
+7. ✅ 운영진 페이지: 일정 CRUD
+8. ✅ 반복일정 생성 (repeat_weeks 파라미터)
+9. ✅ 게스트 등록 (admin only)
+10. APScheduler 보조 상태 전환 (lazy evaluation으로 대체, 추후 필요 시 추가)
+11. ✅ 카톡 공유용 정모 안내 텍스트 복사 버튼
 
 ### Phase 3: 대진표
 
