@@ -40,8 +40,8 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`rounded-lg px-4 py-3 text-sm text-white shadow-lg transition-all ${
-            toast.type === "error" ? "bg-red-600" : "bg-gray-800"
+          className={`rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg ${
+            toast.type === "error" ? "bg-red-600" : "bg-gray-800 dark:bg-gray-200 dark:text-gray-900"
           }`}
         >
           {toast.text}

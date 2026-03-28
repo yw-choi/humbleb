@@ -26,18 +26,12 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
 
   return (
     <div className="fixed inset-0 z-40">
-      {/* Scrim */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
-      {/* Sheet */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-2xl bg-white p-4 pt-2 shadow-xl transition-transform duration-300"
+        className="absolute bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-2xl bg-card p-4 pt-2 shadow-xl"
       >
-        {/* Handle */}
-        <div className="mx-auto mb-3 h-1 w-8 rounded-full bg-gray-300" />
+        <div className="mx-auto mb-3 h-1 w-8 rounded-full bg-muted" />
         {children}
       </div>
     </div>

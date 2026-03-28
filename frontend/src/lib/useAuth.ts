@@ -10,12 +10,15 @@ type AuthState =
   | { status: "authenticated"; member: Member };
 
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({ status: "loading" });
+  const token = typeof window !== "undefined" ? getToken() : null;
+  const [state, setState] = useState<AuthState>(
+    token ? { status: "loading" } : { status: "unauthenticated" },
+  );
   const didFetch = useRef(false);
 
   const refresh = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
+    const t = getToken();
+    if (!t) {
       setState({ status: "unauthenticated" });
       return;
     }
@@ -39,14 +42,9 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    if (didFetch.current) return;
+    if (didFetch.current || !token) return;
     didFetch.current = true;
-
-    const token = getToken();
-    if (!token) {
-      setState({ status: "unauthenticated" });
-      return;
-    }
+    // Fetch auth from external API
     getMe()
       .then((member) => setState({ status: "authenticated", member }))
       .catch((e) => {
@@ -63,7 +61,7 @@ export function useAuth() {
           setState({ status: "unauthenticated" });
         }
       });
-  }, []);
+  }, [token]);
 
   return { ...state, refresh };
 }

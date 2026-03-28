@@ -14,16 +14,16 @@ interface ScheduleCardProps {
   onUpdate: () => void;
 }
 
-const STATUS_BADGE: Record<string, { label: string; color: string }> = {
-  MEMBER_OPEN: { label: "멤버신청중", color: "bg-green-100 text-green-700" },
-  GUEST_OPEN: { label: "게스트모집", color: "bg-yellow-100 text-yellow-700" },
-  CLOSED: { label: "마감", color: "bg-gray-100 text-gray-500" },
+const STATUS_BADGE: Record<string, { label: string; dotColor: string }> = {
+  MEMBER_OPEN: { label: "멤버신청중", dotColor: "bg-green-500" },
+  GUEST_OPEN: { label: "게스트모집", dotColor: "bg-yellow-500" },
+  CLOSED: { label: "마감", dotColor: "bg-gray-400" },
 };
 
 const TYPE_LABEL: Record<string, string> = {
   full: "풀참",
-  late: "늦참 (+30분)",
-  early: "일퇴 (-30분)",
+  late: "늦참",
+  early: "일퇴",
 };
 
 export function ScheduleCard({
@@ -44,9 +44,7 @@ export function ScheduleCard({
       showToast("참가 신청 완료");
       onUpdate();
     } catch (e) {
-      if (e instanceof APIError) {
-        showToast(e.message, "error");
-      }
+      if (e instanceof APIError) showToast(e.message, "error");
     } finally {
       setLoading(false);
     }
@@ -56,12 +54,10 @@ export function ScheduleCard({
     setLoading(true);
     try {
       await cancelAttendance(schedule.id);
-      showToast("참가 취소 완료");
+      showToast("불참 처리 완료");
       onUpdate();
     } catch (e) {
-      if (e instanceof APIError) {
-        showToast(e.message, "error");
-      }
+      if (e instanceof APIError) showToast(e.message, "error");
     } finally {
       setLoading(false);
     }
@@ -73,60 +69,71 @@ export function ScheduleCard({
     day: "numeric",
   });
 
+  const isClosed = schedule.status === "CLOSED";
+
   return (
     <>
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
-        <Link href={`/schedule/${schedule.id}`}>
-          <div className="mb-1 text-sm text-gray-500">{dateStr}</div>
-          <div className="mb-1 font-semibold">
-            {schedule.start_time.slice(0, 5)}-{schedule.end_time.slice(0, 5)}{" "}
-            {schedule.venue}
-          </div>
-          <div className="mb-3 flex items-center gap-2">
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.color}`}
-            >
-              {badge.label}
-            </span>
-            <span className="text-sm text-gray-600">
-              {schedule.attendance_count}/{schedule.capacity}명
-            </span>
-          </div>
-        </Link>
-
-        <div className="flex gap-2">
-          {isAttending ? (
-            <>
-              <span className="flex h-12 items-center rounded-lg bg-blue-50 px-4 text-sm font-medium text-blue-700">
-                {TYPE_LABEL[myAttendanceType || "full"]}
+      <div className="rounded-2xl border border-card-border bg-card p-4 transition-colors">
+        <div className="flex items-start gap-3">
+          {/* Left: schedule info */}
+          <Link href={`/schedule/${schedule.id}`} className="touch-active min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-fg">{dateStr}</span>
+              <span className="flex items-center gap-1 text-xs text-muted-fg">
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${badge.dotColor}`} />
+                {badge.label}
               </span>
-              <button
-                onClick={handleCancel}
-                disabled={loading || schedule.status === "CLOSED"}
-                className="h-12 rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-700 active:bg-gray-200 disabled:opacity-50"
-              >
-                취소
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setSheetOpen(true)}
-                disabled={loading || schedule.status === "CLOSED"}
-                className="h-12 rounded-lg bg-blue-600 px-6 text-sm font-medium text-white active:bg-blue-700 disabled:opacity-50"
-              >
-                참가
-              </button>
-              {schedule.status !== "CLOSED" && (
+            </div>
+            <div className="mb-0.5 text-base font-semibold">
+              {schedule.start_time.slice(0, 5)}-{schedule.end_time.slice(0, 5)}
+            </div>
+            <div className="mb-1 text-sm text-muted-fg">{schedule.venue}</div>
+            <div className="text-sm text-muted-fg">
+              {schedule.attendance_count}/{schedule.capacity}명
+            </div>
+          </Link>
+
+          {/* Right: action buttons (vertical stack) */}
+          <div className="flex flex-col gap-2">
+            {isAttending ? (
+              <>
                 <button
                   disabled
-                  className="h-12 rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-400"
+                  className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-blue-600 text-white"
                 >
-                  불참
+                  <span className="text-lg">✓</span>
+                  <span className="text-[10px] font-medium">{TYPE_LABEL[myAttendanceType || "full"]}</span>
                 </button>
-              )}
-            </>
-          )}
+                <button
+                  onClick={handleCancel}
+                  disabled={loading || isClosed}
+                  className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-muted text-muted-fg disabled:opacity-40"
+                >
+                  <span className="text-lg">✕</span>
+                  <span className="text-[10px] font-medium">취소</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setSheetOpen(true)}
+                  disabled={loading || isClosed}
+                  className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-blue-600 text-white disabled:opacity-40"
+                >
+                  <span className="text-lg">○</span>
+                  <span className="text-[10px] font-medium">참가</span>
+                </button>
+                <button
+                  onClick={handleCancel}
+                  disabled={loading || isClosed}
+                  className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-muted text-muted-fg disabled:opacity-40"
+                >
+                  <span className="text-lg">✕</span>
+                  <span className="text-[10px] font-medium">불참</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -137,9 +144,11 @@ export function ScheduleCard({
             <button
               key={type}
               onClick={() => handleAttend(type)}
-              className="h-14 rounded-lg bg-gray-50 px-4 text-left text-base font-medium active:bg-gray-100"
+              className="touch-active flex h-14 items-center rounded-xl bg-muted px-4 text-base font-medium"
             >
               {TYPE_LABEL[type]}
+              {type === "late" && <span className="ml-2 text-sm text-muted-fg">(시작 +30분)</span>}
+              {type === "early" && <span className="ml-2 text-sm text-muted-fg">(종료 -30분)</span>}
             </button>
           ))}
         </div>
