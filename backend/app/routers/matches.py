@@ -1,15 +1,15 @@
 """Matchmaking and match endpoints."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_member, require_admin
+from app.auth import decode_jwt, get_current_member, require_admin
 from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.game import Game, MatchRound, PlayerType
@@ -252,7 +252,7 @@ async def confirm_matchmaking(
         raise HTTPException(404, "No draft matchmaking found")
 
     mm.status = MatchmakingStatus.CONFIRMED
-    mm.confirmed_at = datetime.utcnow()
+    mm.confirmed_at = datetime.now(timezone.utc)
     db.add(mm)
     await db.commit()
     return {"status": "confirmed"}
@@ -275,28 +275,45 @@ async def get_matches(
     if not mm:
         raise HTTPException(404, "No matchmaking found")
 
-    # Build name lookup
-    members_result = await db.execute(select(Member))
-    member_names = {str(m.id): m.name for m in members_result.scalars().all()}
+    # Load rounds and games first to collect player IDs
+    rounds_result = await db.execute(
+        select(MatchRound)
+        .where(MatchRound.matchmaking_id == mm.id)
+        .order_by(MatchRound.round_number)
+    )
+    all_rounds = list(rounds_result.scalars().all())
+    all_games_by_round: dict[uuid.UUID, list[Game]] = {}
+    player_ids: set[uuid.UUID] = set()
+    for rnd in all_rounds:
+        games_result = await db.execute(
+            select(Game).where(Game.round_id == rnd.id).order_by(Game.court)
+        )
+        games = list(games_result.scalars().all())
+        all_games_by_round[rnd.id] = games
+        for game in games:
+            player_ids.update([
+                game.team_a_player1_id, game.team_a_player2_id,
+                game.team_b_player1_id, game.team_b_player2_id,
+            ])
+
+    # Build name lookup filtered to relevant members
+    if player_ids:
+        members_result = await db.execute(
+            select(Member).where(Member.id.in_(player_ids))
+        )
+        member_names = {str(m.id): m.name for m in members_result.scalars().all()}
+    else:
+        member_names = {}
     guests_result = await db.execute(
         select(Guest).where(Guest.schedule_id == schedule_id)
     )
     guest_names = {str(g.id): g.name for g in guests_result.scalars().all()}
     name_lookup = {**member_names, **guest_names}
 
-    # Load rounds and games
-    rounds_result = await db.execute(
-        select(MatchRound)
-        .where(MatchRound.matchmaking_id == mm.id)
-        .order_by(MatchRound.round_number)
-    )
     rounds_out: list[RoundOut] = []
-    for rnd in rounds_result.scalars().all():
-        games_result = await db.execute(
-            select(Game).where(Game.round_id == rnd.id).order_by(Game.court)
-        )
+    for rnd in all_rounds:
         games_out: list[GameOut] = []
-        for game in games_result.scalars().all():
+        for game in all_games_by_round[rnd.id]:
             games_out.append(GameOut(
                 id=str(game.id),
                 court=game.court,
@@ -354,6 +371,11 @@ async def swap_players(
         if not game_b:
             raise HTTPException(404, "Second game not found")
 
+    # Validate positions
+    VALID_POSITIONS = {"team_a_player1", "team_a_player2", "team_b_player1", "team_b_player2"}
+    if body.position_a not in VALID_POSITIONS or body.position_b not in VALID_POSITIONS:
+        raise HTTPException(400, "Invalid position")
+
     # Get player IDs and types from positions
     val_a_id = getattr(game_a, f"{body.position_a}_id")
     val_a_type = getattr(game_a, f"{body.position_a}_type")
@@ -405,6 +427,8 @@ async def submit_result(
         raise HTTPException(403, "Only participants or admin can submit scores")
 
     had_score = game.score_a is not None
+    if had_score:
+        raise HTTPException(409, "Score already submitted. Cannot resubmit.")
 
     game.score_a = body.score_a
     game.score_b = body.score_b
@@ -457,8 +481,14 @@ async def submit_result(
 
     await db.commit()
 
-    # Build name lookup for response
-    members_result = await db.execute(select(Member))
+    # Build name lookup for response (only relevant players)
+    game_player_ids = [
+        game.team_a_player1_id, game.team_a_player2_id,
+        game.team_b_player1_id, game.team_b_player2_id,
+    ]
+    members_result = await db.execute(
+        select(Member).where(Member.id.in_(game_player_ids))
+    )
     name_lookup = {str(m.id): m.name for m in members_result.scalars().all()}
     # Get schedule_id from round → matchmaking
     round_result = await db.execute(select(MatchRound).where(MatchRound.id == game.round_id))
@@ -492,11 +522,33 @@ async def submit_result(
 @router.get("/schedules/{schedule_id}/matches/image")
 async def get_match_image(
     schedule_id: uuid.UUID,
-    member: Member = Depends(get_current_member),
+    token: str = Query(default=None),
+    request: Request = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a PNG image of the matchmaking for sharing."""
     from app.services.match_image import GameInfo, RoundInfo, generate_match_image
+
+    # Authenticate: try Bearer header first, fall back to query param
+    auth_header = request.headers.get("Authorization", "")
+    jwt_token = None
+    if auth_header.startswith("Bearer "):
+        jwt_token = auth_header[7:]
+    elif token:
+        jwt_token = token
+
+    if not jwt_token:
+        raise HTTPException(401, "Not authenticated")
+
+    payload = decode_jwt(jwt_token)
+    kakao_id = payload.get("kakao_id")
+    if not kakao_id:
+        raise HTTPException(401, "Invalid token")
+
+    member_result = await db.execute(select(Member).where(Member.kakao_id == kakao_id))
+    member = member_result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(403, "Member not linked")
 
     # Get schedule info
     sched_result = await db.execute(select(Schedule).where(Schedule.id == schedule_id))
@@ -514,24 +566,41 @@ async def get_match_image(
     if not mm:
         raise HTTPException(404, "No matchmaking found")
 
-    # Build name lookup
-    members_result = await db.execute(select(Member))
-    name_lookup = {str(m.id): m.name for m in members_result.scalars().all()}
+    # Load rounds and collect player IDs
+    rounds_result = await db.execute(
+        select(MatchRound).where(MatchRound.matchmaking_id == mm.id).order_by(MatchRound.round_number)
+    )
+    all_rounds = list(rounds_result.scalars().all())
+    all_games_by_round: dict[uuid.UUID, list[Game]] = {}
+    img_player_ids: set[uuid.UUID] = set()
+    for rnd in all_rounds:
+        games_result = await db.execute(
+            select(Game).where(Game.round_id == rnd.id).order_by(Game.court)
+        )
+        games = list(games_result.scalars().all())
+        all_games_by_round[rnd.id] = games
+        for game in games:
+            img_player_ids.update([
+                game.team_a_player1_id, game.team_a_player2_id,
+                game.team_b_player1_id, game.team_b_player2_id,
+            ])
+
+    # Build name lookup filtered to relevant members
+    if img_player_ids:
+        members_result = await db.execute(
+            select(Member).where(Member.id.in_(img_player_ids))
+        )
+        name_lookup = {str(m.id): m.name for m in members_result.scalars().all()}
+    else:
+        name_lookup = {}
     guests_result = await db.execute(select(Guest).where(Guest.schedule_id == schedule_id))
     for g in guests_result.scalars().all():
         name_lookup[str(g.id)] = g.name
 
-    # Load rounds
-    rounds_result = await db.execute(
-        select(MatchRound).where(MatchRound.matchmaking_id == mm.id).order_by(MatchRound.round_number)
-    )
     rounds_info: list[RoundInfo] = []
-    for rnd in rounds_result.scalars().all():
-        games_result = await db.execute(
-            select(Game).where(Game.round_id == rnd.id).order_by(Game.court)
-        )
+    for rnd in all_rounds:
         games_info: list[GameInfo] = []
-        for game in games_result.scalars().all():
+        for game in all_games_by_round[rnd.id]:
             games_info.append(GameInfo(
                 court=game.court,
                 team_a=(

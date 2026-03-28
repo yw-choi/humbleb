@@ -31,7 +31,10 @@ class LinkRequest(BaseModel):
 
 
 @router.get("/", response_model=list[MemberOut])
-async def list_members(db: AsyncSession = Depends(get_db)):
+async def list_members(
+    member: Member = Depends(get_current_member),
+    db: AsyncSession = Depends(get_db),
+):
     """List all active members."""
     result = await db.execute(
         select(Member).where(Member.status == "ACTIVE").order_by(Member.name)

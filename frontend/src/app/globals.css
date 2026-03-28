@@ -19,8 +19,9 @@
   --muted-fg: #737373;
 }
 
+/* System dark mode — applied unless user forced light */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0a0a0a;
     --foreground: #ededed;
     --card: #1c1c1e;
@@ -28,6 +29,16 @@
     --muted: #2c2c2e;
     --muted-fg: #a1a1a1;
   }
+}
+
+/* Manual dark mode */
+[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #1c1c1e;
+  --card-border: #2c2c2e;
+  --muted: #2c2c2e;
+  --muted-fg: #a1a1a1;
 }
 
 body {
@@ -79,4 +90,25 @@ body {
 }
 .animate-modal-in {
   animation: modal-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Attendance success — bouncy pop */
+@keyframes attend-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.animate-attend-pop {
+  animation: attend-pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Check mark entrance */
+@keyframes check-in {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-check-in {
+  animation: check-in 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }

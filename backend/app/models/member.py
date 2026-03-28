@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, Enum, Float, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -30,4 +30,4 @@ class Member(Base):
     status: Mapped[MemberStatus] = mapped_column(Enum(MemberStatus), default=MemberStatus.ACTIVE)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     kakao_id: Mapped[str | None] = mapped_column(String(50), nullable=True, unique=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

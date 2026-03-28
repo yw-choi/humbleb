@@ -8,8 +8,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import require_admin
+from app.auth import require_admin, get_optional_member
 from app.database import get_db
+from app.models.attendance import Attendance as AttendanceModel
 from app.models.member import Member
 from app.models.schedule import Schedule, ScheduleStatus
 from app.services.schedule_status import evaluate_and_update
@@ -28,6 +29,7 @@ class ScheduleOut(BaseModel):
     capacity: int
     status: str
     attendance_count: int = 0
+    my_attendance_type: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -55,21 +57,40 @@ class ScheduleUpdate(BaseModel):
 
 @router.get("/upcoming", response_model=list[ScheduleOut])
 async def upcoming_schedules(
+    member: Member | None = Depends(get_optional_member),
     db: AsyncSession = Depends(get_db),
 ):
-    """List upcoming schedules (next 14 days) with attendance counts."""
+    """List upcoming schedules (next 30 days) with attendance counts and user's attendance."""
     today = date.today()
-    cutoff = today + timedelta(days=14)
+    cutoff = today + timedelta(days=30)
     schedules = await db.execute(
         select(Schedule)
         .where(Schedule.date >= today, Schedule.date <= cutoff)
         .order_by(Schedule.date, Schedule.start_time)
     )
+    schedule_list = schedules.scalars().all()
+
+    # Batch-load user's attendances for all schedules in one query
+    my_attendances: dict[uuid.UUID, str] = {}
+    if member:
+        schedule_ids = [s.id for s in schedule_list]
+        if schedule_ids:
+            att_result = await db.execute(
+                select(AttendanceModel)
+                .where(
+                    AttendanceModel.member_id == member.id,
+                    AttendanceModel.schedule_id.in_(schedule_ids),
+                )
+            )
+            for att in att_result.scalars().all():
+                my_attendances[att.schedule_id] = att.attendance_type.value
+
     results = []
-    for schedule in schedules.scalars().all():
+    for schedule in schedule_list:
         status, count = await evaluate_and_update(schedule, db)
         out = ScheduleOut.model_validate(schedule)
         out.attendance_count = count
+        out.my_attendance_type = my_attendances.get(schedule.id)
         results.append(out)
     await db.commit()
     return results

@@ -25,7 +25,7 @@ class FakeSchedule:
     registration_deadline: datetime | None = None
     recurrence_rule: str | None = None
     parent_schedule_id: uuid.UUID | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now)
 
 
 def mock_db_with_count(count: int) -> AsyncMock:
@@ -61,14 +61,14 @@ class TestComputeStatus:
     async def test_past_date_closed(self):
         s = FakeSchedule(date=date(2026, 3, 20))
         db = mock_db_with_count(5)
-        status = await compute_status(s, db, now=datetime(2026, 3, 28, 10, 0))
+        status, _ = await compute_status(s, db, now=datetime(2026, 3, 28, 10, 0))
         assert status == ScheduleStatus.CLOSED
 
     @pytest.mark.asyncio
     async def test_today_past_end_time_closed(self):
         s = FakeSchedule(date=date(2026, 3, 28), end_time=time(12, 30))
         db = mock_db_with_count(5)
-        status = await compute_status(s, db, now=datetime(2026, 3, 28, 13, 0))
+        status, _ = await compute_status(s, db, now=datetime(2026, 3, 28, 13, 0))
         assert status == ScheduleStatus.CLOSED
 
     @pytest.mark.asyncio
@@ -79,14 +79,14 @@ class TestComputeStatus:
             registration_deadline=datetime(2026, 3, 25, 15, 0),
         )
         db = mock_db_with_count(5)
-        status = await compute_status(s, db, now=datetime(2026, 3, 28, 10, 0))
+        status, _ = await compute_status(s, db, now=datetime(2026, 3, 28, 10, 0))
         assert status == ScheduleStatus.GUEST_OPEN
 
     @pytest.mark.asyncio
     async def test_capacity_reached_closed(self):
         s = FakeSchedule(date=date(2026, 3, 29), capacity=12)
         db = mock_db_with_count(12)
-        status = await compute_status(s, db, now=datetime(2026, 3, 27, 10, 0))
+        status, _ = await compute_status(s, db, now=datetime(2026, 3, 27, 10, 0))
         assert status == ScheduleStatus.CLOSED
 
     @pytest.mark.asyncio
@@ -97,7 +97,7 @@ class TestComputeStatus:
             registration_deadline=datetime(2026, 3, 25, 15, 0),
         )
         db = mock_db_with_count(8)
-        status = await compute_status(s, db, now=datetime(2026, 3, 26, 10, 0))
+        status, _ = await compute_status(s, db, now=datetime(2026, 3, 26, 10, 0))
         assert status == ScheduleStatus.GUEST_OPEN
 
     @pytest.mark.asyncio
@@ -108,7 +108,7 @@ class TestComputeStatus:
             registration_deadline=datetime(2026, 3, 25, 15, 0),
         )
         db = mock_db_with_count(5)
-        status = await compute_status(s, db, now=datetime(2026, 3, 24, 10, 0))
+        status, _ = await compute_status(s, db, now=datetime(2026, 3, 24, 10, 0))
         assert status == ScheduleStatus.MEMBER_OPEN
 
     @pytest.mark.asyncio
@@ -120,7 +120,7 @@ class TestComputeStatus:
             registration_deadline=deadline,
         )
         db = mock_db_with_count(8)
-        status = await compute_status(s, db, now=deadline)
+        status, _ = await compute_status(s, db, now=deadline)
         assert status == ScheduleStatus.GUEST_OPEN
 
     @pytest.mark.asyncio
@@ -131,5 +131,5 @@ class TestComputeStatus:
             registration_deadline=datetime(2026, 3, 25, 15, 0),
         )
         db = mock_db_with_count(12)
-        status = await compute_status(s, db, now=datetime(2026, 3, 26, 10, 0))
+        status, _ = await compute_status(s, db, now=datetime(2026, 3, 26, 10, 0))
         assert status == ScheduleStatus.CLOSED

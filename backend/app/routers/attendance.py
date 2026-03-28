@@ -58,31 +58,28 @@ async def attend(
     member: Member = Depends(get_current_member),
     db: AsyncSession = Depends(get_db),
 ):
-    # Get schedule
-    result = await db.execute(select(Schedule).where(Schedule.id == schedule_id))
+    # Get schedule with row lock to prevent race conditions
+    result = await db.execute(
+        select(Schedule).where(Schedule.id == schedule_id).with_for_update()
+    )
     schedule = result.scalar_one_or_none()
     if not schedule:
         raise HTTPException(404, "Schedule not found")
 
-    # Lazy evaluate status
-    await evaluate_and_update(schedule, db)
+    # Lazy evaluate status (reuse count to avoid double query)
+    status, count = await evaluate_and_update(schedule, db)
 
     # Check status
-    if schedule.status == ScheduleStatus.CLOSED:
+    if status == ScheduleStatus.CLOSED:
         raise HTTPException(403, "Registration is closed")
 
-    if schedule.status == ScheduleStatus.GUEST_OPEN:
+    if status == ScheduleStatus.GUEST_OPEN:
         # Members can still attend during GUEST_OPEN
         pass
-    elif schedule.status != ScheduleStatus.MEMBER_OPEN:
+    elif status != ScheduleStatus.MEMBER_OPEN:
         raise HTTPException(403, "Registration not open")
 
-    # Check capacity
-    from sqlalchemy import func
-    count_result = await db.execute(
-        select(func.count()).where(Attendance.schedule_id == schedule_id)
-    )
-    count = count_result.scalar() or 0
+    # Check capacity (using count from evaluate_and_update)
     if count >= schedule.capacity:
         raise HTTPException(409, "Schedule is full")
 

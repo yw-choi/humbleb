@@ -53,6 +53,22 @@ async def get_current_member(
     return member
 
 
+async def get_optional_member(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Member | None:
+    """Return current member if authenticated, None otherwise."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    try:
+        payload = decode_jwt(auth_header[7:])
+    except HTTPException:
+        return None
+    result = await db.execute(select(Member).where(Member.kakao_id == payload["kakao_id"]))
+    return result.scalar_one_or_none()
+
+
 async def require_admin(
     member: Member = Depends(get_current_member),
 ) -> Member:

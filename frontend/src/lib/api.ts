@@ -69,6 +69,7 @@ export interface Schedule {
   capacity: number;
   status: "MEMBER_OPEN" | "GUEST_OPEN" | "CLOSED";
   attendance_count: number;
+  my_attendance_type?: "full" | "late" | "early" | null;
 }
 
 export interface Attendance {
@@ -322,10 +323,18 @@ export async function getMemberStats(): Promise<MemberStats[]> {
   return fetchAPI<MemberStats[]>("/members/stats");
 }
 
-// Match image URL
+// Match image URL (no token — use downloadMatchImage for authenticated downloads)
 export function getMatchImageUrl(scheduleId: string): string {
+  return `${API_URL}/schedules/${scheduleId}/matches/image`;
+}
+
+export async function downloadMatchImage(scheduleId: string): Promise<Blob> {
   const token = getToken();
-  return `${API_URL}/schedules/${scheduleId}/matches/image${token ? `?token=${token}` : ""}`;
+  const res = await fetch(`${API_URL}/schedules/${scheduleId}/matches/image`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new APIError(res.status, "Image download failed");
+  return res.blob();
 }
 
 // Game results

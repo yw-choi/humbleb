@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 
 from sqlalchemy import Date, DateTime, Enum, Integer, String, Time
 from sqlalchemy.dialects.postgresql import UUID
@@ -30,4 +30,4 @@ class Schedule(Base):
     registration_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     recurrence_rule: Mapped[str | None] = mapped_column(String(50), nullable=True)
     parent_schedule_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

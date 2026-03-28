@@ -17,3 +17,6 @@ class Settings:
 
 
 settings = Settings()
+
+if settings.JWT_SECRET == "change-me" and os.getenv("ENV") == "production":
+    raise RuntimeError("JWT_SECRET must be changed from default in production")

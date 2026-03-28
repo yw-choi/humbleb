@@ -1,4 +1,5 @@
 """Kakao OAuth login/logout endpoints."""
+import os
 from urllib.parse import urlencode
 
 import httpx
@@ -74,42 +75,43 @@ async def logout():
     return {"status": "ok"}
 
 
-@router.get("/dev-login")
-async def dev_login(
-    request: Request,
-    member_id: str = Query(...),
-    redirect: str = Query(default=""),
-):
-    """Dev-only: issue a JWT for a member by ID, bypassing Kakao OAuth.
+if os.getenv("ENV") != "production":
+    @router.get("/dev-login")
+    async def dev_login(
+        request: Request,
+        member_id: str = Query(...),
+        redirect: str = Query(default=""),
+    ):
+        """Dev-only: issue a JWT for a member by ID, bypassing Kakao OAuth.
 
-    Usage: GET /auth/dev-login?member_id=<uuid>[&redirect=http://...]
-    """
-    import uuid
+        Usage: GET /auth/dev-login?member_id=<uuid>[&redirect=http://...]
+        """
+        import uuid
 
-    from sqlalchemy import select
+        from sqlalchemy import select
 
-    from app.database import async_session
-    from app.models.member import Member
+        from app.database import async_session
+        from app.models.member import Member
 
-    try:
-        mid = uuid.UUID(member_id)
-    except ValueError:
-        raise HTTPException(400, "Invalid member_id")
+        try:
+            mid = uuid.UUID(member_id)
+        except ValueError:
+            raise HTTPException(400, "Invalid member_id")
 
-    async with async_session() as db:
-        result = await db.execute(select(Member).where(Member.id == mid))
-        member = result.scalar_one_or_none()
-        if not member:
-            raise HTTPException(404, "Member not found")
+        async with async_session() as db:
+            result = await db.execute(select(Member).where(Member.id == mid))
+            member = result.scalar_one_or_none()
+            if not member:
+                raise HTTPException(404, "Member not found")
 
-        kakao_id = member.kakao_id or f"dev_{member_id}"
-        if not member.kakao_id:
-            member.kakao_id = kakao_id
-            db.add(member)
-            await db.commit()
+            kakao_id = member.kakao_id or f"dev_{member_id}"
+            if not member.kakao_id:
+                member.kakao_id = kakao_id
+                db.add(member)
+                await db.commit()
 
-    token = create_jwt(kakao_id, mid)
+        token = create_jwt(kakao_id, mid)
 
-    # Use custom redirect or default to FRONTEND_URL
-    base = redirect or f"{settings.FRONTEND_URL}/humbleb"
-    return RedirectResponse(f"{base}/auth/callback#token={token}")
+        # Use custom redirect or default to FRONTEND_URL
+        base = redirect or f"{settings.FRONTEND_URL}/humbleb"
+        return RedirectResponse(f"{base}/auth/callback#token={token}")

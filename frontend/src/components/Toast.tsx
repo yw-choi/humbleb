@@ -31,7 +31,9 @@ export function ToastContainer() {
   useEffect(() => {
     addToastFn = addToast;
     return () => {
-      addToastFn = null;
+      if (addToastFn === addToast) {
+        addToastFn = null;
+      }
     };
   }, [addToast]);
 

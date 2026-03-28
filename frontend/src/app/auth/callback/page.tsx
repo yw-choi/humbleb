@@ -13,8 +13,11 @@ export default function AuthCallback() {
     const match = hash.match(/token=([^&]+)/);
     if (match) {
       setToken(match[1]);
+      router.replace("/");
+    } else {
+      const errorMatch = hash.match(/error=([^&]+)/);
+      router.replace(errorMatch ? `/?error=${errorMatch[1]}` : "/?error=auth_failed");
     }
-    router.replace("/");
   }, [router]);
 
   return (

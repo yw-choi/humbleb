@@ -26,8 +26,10 @@ def get_registration_deadline(schedule: Schedule) -> datetime:
 
 async def compute_status(
     schedule: Schedule, db: AsyncSession, now: datetime | None = None
-) -> ScheduleStatus:
+) -> tuple[ScheduleStatus, int]:
     """Compute the effective status of a schedule based on current time.
+
+    Returns (status, attendance_count).
 
     Rules (evaluated in order):
     1. Schedule date has passed → CLOSED
@@ -42,11 +44,11 @@ async def compute_status(
 
     # Rule 1: schedule date has passed
     if schedule.date < today:
-        return ScheduleStatus.CLOSED
+        return ScheduleStatus.CLOSED, 0
 
     # Rule 1b: schedule is today and past end_time
     if schedule.date == today and now.time() > schedule.end_time:
-        return ScheduleStatus.CLOSED
+        return ScheduleStatus.CLOSED, 0
 
     # Count current attendance
     count_result = await db.execute(
@@ -56,15 +58,15 @@ async def compute_status(
 
     # Rule 2: capacity reached
     if count >= schedule.capacity:
-        return ScheduleStatus.CLOSED
+        return ScheduleStatus.CLOSED, count
 
     # Rule 3: past registration deadline + under capacity → GUEST_OPEN
     deadline = get_registration_deadline(schedule)
     if now >= deadline:
-        return ScheduleStatus.GUEST_OPEN
+        return ScheduleStatus.GUEST_OPEN, count
 
     # Default: MEMBER_OPEN
-    return ScheduleStatus.MEMBER_OPEN
+    return ScheduleStatus.MEMBER_OPEN, count
 
 
 async def evaluate_and_update(
@@ -74,16 +76,11 @@ async def evaluate_and_update(
     if now is None:
         now = datetime.now()
 
-    new_status = await compute_status(schedule, db, now)
+    new_status, count = await compute_status(schedule, db, now)
 
     if schedule.status != new_status:
         schedule.status = new_status
         db.add(schedule)
         await db.flush()
-
-    count_result = await db.execute(
-        select(func.count()).where(Attendance.schedule_id == schedule.id)
-    )
-    count = count_result.scalar() or 0
 
     return new_status, count
