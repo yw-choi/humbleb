@@ -35,11 +35,48 @@ body {
   color: var(--foreground);
 }
 
-/* Touch feedback */
+/* Touch feedback — light press */
 .touch-active {
   transition: transform 100ms ease, opacity 100ms ease;
 }
 .touch-active:active {
   transform: scale(0.97);
   opacity: 0.8;
+}
+
+/* Card press — deeper press for cards */
+.card-press {
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 150ms ease;
+  will-change: transform;
+}
+.card-press:active {
+  transform: scale(0.98);
+}
+
+/* Button press — snappy bounce */
+.btn-press {
+  transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 120ms ease,
+              background-color 150ms ease,
+              color 150ms ease;
+  will-change: transform;
+}
+.btn-press:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+/* Center modal animation */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.animate-modal-in {
+  animation: modal-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
