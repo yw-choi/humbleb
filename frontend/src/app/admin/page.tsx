@@ -11,11 +11,18 @@ import {
   registerGuest,
   deleteGuest,
   getShareText,
+  createMatchmaking,
+  confirmMatchmaking,
+  getMatches,
+  getAttendees,
   clearToken,
   type Schedule,
   type Guest,
   type ScheduleCreateBody,
   type GuestCreateBody,
+  type MatchmakingData,
+  type ConstraintIn,
+  type Attendance,
   APIError,
 } from "@/lib/api";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -218,6 +225,7 @@ function AdminScheduleCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [guestSheetOpen, setGuestSheetOpen] = useState(false);
+  const [matchSheetOpen, setMatchSheetOpen] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [guestForm, setGuestForm] = useState<GuestCreateBody>({
     name: "",
@@ -225,6 +233,8 @@ function AdminScheduleCard({
     estimated_skill: "INTERMEDIATE",
   });
   const [loading, setLoading] = useState(false);
+  const [roundCount, setRoundCount] = useState(5);
+  const [matchmaking, setMatchmaking] = useState<MatchmakingData | null>(null);
 
   const loadGuests = useCallback(async () => {
     try {
@@ -232,6 +242,40 @@ function AdminScheduleCard({
       setGuests(g);
     } catch {
       // ignore
+    }
+  }, [schedule.id]);
+
+  const handleGenerateMatchmaking = async () => {
+    setLoading(true);
+    try {
+      const mm = await createMatchmaking(schedule.id, roundCount);
+      setMatchmaking(mm);
+      showToast("대진표 생성 완료 (DRAFT)");
+    } catch (e) {
+      if (e instanceof APIError) showToast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmMatchmaking = async () => {
+    try {
+      await confirmMatchmaking(schedule.id);
+      showToast("대진표 확정 완료");
+      if (matchmaking) {
+        setMatchmaking({ ...matchmaking, status: "CONFIRMED" });
+      }
+    } catch (e) {
+      if (e instanceof APIError) showToast(e.message, "error");
+    }
+  };
+
+  const loadMatchmaking = useCallback(async () => {
+    try {
+      const mm = await getMatches(schedule.id);
+      setMatchmaking(mm);
+    } catch {
+      setMatchmaking(null);
     }
   }, [schedule.id]);
 
@@ -356,6 +400,16 @@ function AdminScheduleCard({
                     게스트 등록
                   </button>
                   <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setMatchSheetOpen(true);
+                      loadMatchmaking();
+                    }}
+                    className="flex h-11 w-full items-center px-4 text-sm hover:bg-muted"
+                  >
+                    대진표
+                  </button>
+                  <button
                     onClick={handleShare}
                     className="flex h-11 w-full items-center px-4 text-sm hover:bg-muted"
                   >
@@ -460,6 +514,104 @@ function AdminScheduleCard({
             {loading ? "등록 중..." : "게스트 추가"}
           </button>
         </div>
+      </BottomSheet>
+
+      {/* Matchmaking BottomSheet */}
+      <BottomSheet
+        open={matchSheetOpen}
+        onClose={() => setMatchSheetOpen(false)}
+      >
+        <h3 className="mb-4 text-lg font-semibold">대진표</h3>
+
+        {/* Generate controls */}
+        <div className="mb-4 flex items-end gap-2">
+          <label className="flex flex-1 flex-col gap-1">
+            <span className="text-sm text-muted-fg">라운드 수</span>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={roundCount}
+              onChange={(e) => setRoundCount(Number(e.target.value))}
+              className="h-12 rounded-xl border border-card-border bg-card px-3 text-base"
+            />
+          </label>
+          <button
+            onClick={handleGenerateMatchmaking}
+            disabled={loading}
+            className="touch-active flex h-12 items-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {loading ? "생성중..." : "생성"}
+          </button>
+        </div>
+
+        {/* Warnings */}
+        {matchmaking?.warnings && matchmaking.warnings.length > 0 && (
+          <div className="mb-3 rounded-lg bg-yellow-500/10 p-3">
+            {matchmaking.warnings.map((w, i) => (
+              <p key={i} className="text-sm text-yellow-600 dark:text-yellow-400">
+                ⚠ {w}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Draft/Confirmed preview */}
+        {matchmaking && (
+          <div className="mb-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span
+                className={`rounded px-2 py-0.5 text-xs font-bold ${
+                  matchmaking.status === "DRAFT"
+                    ? "bg-yellow-500/20 text-yellow-600"
+                    : "bg-green-500/20 text-green-600"
+                }`}
+              >
+                {matchmaking.status}
+              </span>
+            </div>
+
+            <div className="max-h-[40dvh] overflow-y-auto">
+              {matchmaking.rounds.map((round) => (
+                <div key={round.round_number} className="mb-3">
+                  <p className="mb-1 text-sm font-semibold">
+                    Round {round.round_number}
+                  </p>
+                  {round.games.map((game) => (
+                    <div
+                      key={game.id}
+                      className="mb-1 rounded-lg bg-muted p-2 text-sm"
+                    >
+                      <span className="text-xs text-muted-fg">
+                        Court {game.court}
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <span>
+                          {game.team_a_player1_name}·
+                          {game.team_a_player2_name}
+                        </span>
+                        <span className="text-muted-fg">vs</span>
+                        <span>
+                          {game.team_b_player1_name}·
+                          {game.team_b_player2_name}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {matchmaking.status === "DRAFT" && (
+              <button
+                onClick={handleConfirmMatchmaking}
+                className="touch-active mt-2 flex h-14 w-full items-center justify-center rounded-xl bg-green-600 text-base font-semibold text-white"
+              >
+                대진표 확정
+              </button>
+            )}
+          </div>
+        )}
       </BottomSheet>
     </>
   );

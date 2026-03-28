@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import attendance, auth, guests, members, schedules
+from app.routers import attendance, auth, guests, matches, members, schedules
 
 app = FastAPI(title="HumbleB API", root_path="/humbleb/api")
 
@@ -11,6 +11,7 @@ app.include_router(members.router)
 app.include_router(schedules.router)
 app.include_router(attendance.router)
 app.include_router(guests.router)
+app.include_router(matches.router)
 
 app.add_middleware(
     CORSMiddleware,

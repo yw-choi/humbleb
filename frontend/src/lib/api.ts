@@ -215,3 +215,86 @@ export async function getShareText(
 ): Promise<{ text: string }> {
   return fetchAPI<{ text: string }>(`/schedules/${scheduleId}/share-text`);
 }
+
+// Matchmaking
+export interface ConstraintIn {
+  type: string;
+  member_ids: string[];
+  round?: number;
+}
+
+export interface GameData {
+  id: string;
+  court: string;
+  team_a_player1_id: string;
+  team_a_player2_id: string;
+  team_b_player1_id: string;
+  team_b_player2_id: string;
+  team_a_player1_type: string;
+  team_a_player2_type: string;
+  team_b_player1_type: string;
+  team_b_player2_type: string;
+  team_a_player1_name: string;
+  team_a_player2_name: string;
+  team_b_player1_name: string;
+  team_b_player2_name: string;
+  score_a: number | null;
+  score_b: number | null;
+}
+
+export interface RoundData {
+  round_number: number;
+  games: GameData[];
+}
+
+export interface MatchmakingData {
+  id: string;
+  schedule_id: string;
+  status: "DRAFT" | "CONFIRMED";
+  constraints?: ConstraintIn[];
+  warnings?: string[];
+  rounds: RoundData[];
+}
+
+export async function createMatchmaking(
+  scheduleId: string,
+  roundCount: number,
+  constraints?: ConstraintIn[],
+): Promise<MatchmakingData> {
+  return fetchAPI<MatchmakingData>(`/schedules/${scheduleId}/matchmaking`, {
+    method: "POST",
+    body: JSON.stringify({ round_count: roundCount, constraints }),
+  });
+}
+
+export async function confirmMatchmaking(
+  scheduleId: string,
+): Promise<void> {
+  await fetchAPI(`/schedules/${scheduleId}/matches/confirm`, {
+    method: "POST",
+  });
+}
+
+export async function getMatches(
+  scheduleId: string,
+): Promise<MatchmakingData> {
+  return fetchAPI<MatchmakingData>(`/schedules/${scheduleId}/matches`);
+}
+
+export async function swapPlayers(
+  scheduleId: string,
+  gameId: string,
+  positionA: string,
+  positionB: string,
+  gameIdB?: string,
+): Promise<void> {
+  await fetchAPI(`/schedules/${scheduleId}/matches/swap`, {
+    method: "PUT",
+    body: JSON.stringify({
+      game_id: gameId,
+      position_a: positionA,
+      game_id_b: gameIdB,
+      position_b: positionB,
+    }),
+  });
+}
