@@ -29,18 +29,18 @@ function Header({
         <span className="text-lg font-bold">HumbleB</span>
       </div>
       {name && (
-        <div className="flex items-center gap-3">
-          <a href="/history" className="text-sm text-muted-fg hover:text-foreground">기록</a>
-          <a href="/stats" className="text-sm text-muted-fg hover:text-foreground">통계</a>
-          <span className="text-sm text-muted-fg">{name}</span>
+        <div className="flex items-center gap-2">
+          <a href="/humbleb/history" className="touch-active rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-fg">기록</a>
+          <a href="/humbleb/stats" className="touch-active rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-fg">통계</a>
+          <span className="text-xs text-muted-fg">{name}</span>
           <button
             onClick={onLogout}
-            className="touch-active flex h-8 w-8 items-center justify-center rounded-full text-muted-fg hover:bg-muted"
+            className="touch-active flex h-10 w-10 items-center justify-center rounded-full text-muted-fg hover:bg-muted"
             title="로그아웃"
           >
             <svg
-              width="18"
-              height="18"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -236,7 +236,7 @@ export default function Home() {
       <main className="bg-background">
         <Header />
         <div className="mx-auto w-full max-w-md px-4 py-4">
-          <h2 className="mb-3 text-lg font-semibold">이번 주 정모</h2>
+          <h2 className="mb-3 text-lg font-semibold">다가오는 정모</h2>
           <ScheduleListSkeleton />
         </div>
         <ToastContainer />
@@ -259,28 +259,54 @@ export default function Home() {
     );
   }
 
+  const openSchedules = schedules.filter((s) => s.status !== "CLOSED");
+  const closedSchedules = schedules.filter((s) => s.status === "CLOSED");
+
   return (
     <main className="bg-background">
       <Header name={auth.member.name} onLogout={handleLogout} />
       <div className="mx-auto w-full max-w-md px-4 py-4">
-        <h2 className="mb-3 text-lg font-semibold">이번 주 정모</h2>
+        <h2 className="mb-3 text-lg font-semibold">다가오는 정모</h2>
 
-        {schedules.length === 0 ? (
+        {openSchedules.length === 0 && closedSchedules.length === 0 ? (
           <div className="py-12 text-center text-muted-fg">
             예정된 정모가 없습니다
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {schedules.map((schedule) => (
-              <ScheduleCard
-                key={schedule.id}
-                schedule={schedule}
-                isAttending={!!myAttendances[schedule.id]}
-                myAttendanceType={myAttendances[schedule.id]?.attendance_type}
-                onUpdate={loadData}
-              />
-            ))}
-          </div>
+          <>
+            {openSchedules.length > 0 && (
+              <div className="flex flex-col gap-3">
+                {openSchedules.map((schedule) => (
+                  <ScheduleCard
+                    key={schedule.id}
+                    schedule={schedule}
+                    isAttending={!!myAttendances[schedule.id]}
+                    myAttendanceType={myAttendances[schedule.id]?.attendance_type}
+                    onUpdate={loadData}
+                  />
+                ))}
+              </div>
+            )}
+
+            {closedSchedules.length > 0 && (
+              <details className="mt-4">
+                <summary className="cursor-pointer text-sm text-muted-fg">
+                  마감된 일정 ({closedSchedules.length})
+                </summary>
+                <div className="mt-2 flex flex-col gap-3">
+                  {closedSchedules.map((schedule) => (
+                    <ScheduleCard
+                      key={schedule.id}
+                      schedule={schedule}
+                      isAttending={!!myAttendances[schedule.id]}
+                      myAttendanceType={myAttendances[schedule.id]?.attendance_type}
+                      onUpdate={loadData}
+                    />
+                  ))}
+                </div>
+              </details>
+            )}
+          </>
         )}
       </div>
       <ToastContainer />

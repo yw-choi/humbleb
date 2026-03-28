@@ -57,11 +57,12 @@ class ScheduleUpdate(BaseModel):
 async def upcoming_schedules(
     db: AsyncSession = Depends(get_db),
 ):
-    """List upcoming schedules with attendance counts. Excludes past schedules."""
+    """List upcoming schedules (next 14 days) with attendance counts."""
     today = date.today()
+    cutoff = today + timedelta(days=14)
     schedules = await db.execute(
         select(Schedule)
-        .where(Schedule.date >= today)
+        .where(Schedule.date >= today, Schedule.date <= cutoff)
         .order_by(Schedule.date, Schedule.start_time)
     )
     results = []
@@ -82,7 +83,7 @@ async def past_schedules(
     today = date.today()
     schedules = await db.execute(
         select(Schedule)
-        .where(Schedule.date < today)
+        .where(Schedule.date <= today)
         .order_by(Schedule.date.desc(), Schedule.start_time.desc())
         .limit(50)
     )

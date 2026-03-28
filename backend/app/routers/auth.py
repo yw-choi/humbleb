@@ -2,7 +2,7 @@
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.auth import create_jwt
@@ -62,10 +62,54 @@ async def kakao_callback(code: str = Query(...)):
 
     # 3. Issue JWT and pass via URL fragment (not query param, so it stays client-side)
     token = create_jwt(kakao_id)
-    return RedirectResponse(f"{settings.FRONTEND_URL}/auth/callback#token={token}")
+    # basePath="/humbleb" on frontend, so callback is at /humbleb/auth/callback
+    frontend_base = settings.FRONTEND_URL.rstrip("/")
+    callback_path = "/humbleb/auth/callback" if "vesper" in frontend_base else "/auth/callback"
+    return RedirectResponse(f"{frontend_base}{callback_path}#token={token}")
 
 
 @router.post("/logout")
 async def logout():
     """No-op. Token is stored client-side in localStorage."""
     return {"status": "ok"}
+
+
+@router.get("/dev-login")
+async def dev_login(
+    request: Request,
+    member_id: str = Query(...),
+    redirect: str = Query(default=""),
+):
+    """Dev-only: issue a JWT for a member by ID, bypassing Kakao OAuth.
+
+    Usage: GET /auth/dev-login?member_id=<uuid>[&redirect=http://...]
+    """
+    import uuid
+
+    from sqlalchemy import select
+
+    from app.database import async_session
+    from app.models.member import Member
+
+    try:
+        mid = uuid.UUID(member_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid member_id")
+
+    async with async_session() as db:
+        result = await db.execute(select(Member).where(Member.id == mid))
+        member = result.scalar_one_or_none()
+        if not member:
+            raise HTTPException(404, "Member not found")
+
+        kakao_id = member.kakao_id or f"dev_{member_id}"
+        if not member.kakao_id:
+            member.kakao_id = kakao_id
+            db.add(member)
+            await db.commit()
+
+    token = create_jwt(kakao_id, mid)
+
+    # Use custom redirect or default to FRONTEND_URL
+    base = redirect or f"{settings.FRONTEND_URL}/humbleb"
+    return RedirectResponse(f"{base}/auth/callback#token={token}")

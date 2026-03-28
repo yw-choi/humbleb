@@ -73,7 +73,7 @@ export function ScheduleCard({
 
   return (
     <>
-      <div className="rounded-2xl border border-card-border bg-card p-4 transition-colors">
+      <div className={`rounded-2xl border border-card-border bg-card p-4 transition-colors ${isClosed ? "opacity-50" : ""}`}>
         <div className="flex items-start gap-3">
           {/* Left: schedule info */}
           <Link href={`/schedule/${schedule.id}`} className="touch-active min-w-0 flex-1">
@@ -102,7 +102,7 @@ export function ScheduleCard({
                   className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-blue-600 text-white"
                 >
                   <span className="text-lg">✓</span>
-                  <span className="text-[10px] font-medium">{TYPE_LABEL[myAttendanceType || "full"]}</span>
+                  <span className="text-xs font-medium">{TYPE_LABEL[myAttendanceType || "full"]}</span>
                 </button>
                 <button
                   onClick={handleCancel}
@@ -110,7 +110,7 @@ export function ScheduleCard({
                   className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-muted text-muted-fg disabled:opacity-40"
                 >
                   <span className="text-lg">✕</span>
-                  <span className="text-[10px] font-medium">취소</span>
+                  <span className="text-xs font-medium">취소</span>
                 </button>
               </>
             ) : (
@@ -121,7 +121,7 @@ export function ScheduleCard({
                   className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-blue-600 text-white disabled:opacity-40"
                 >
                   <span className="text-lg">○</span>
-                  <span className="text-[10px] font-medium">참가</span>
+                  <span className="text-xs font-medium">참가</span>
                 </button>
                 <button
                   onClick={handleCancel}
@@ -129,7 +129,7 @@ export function ScheduleCard({
                   className="touch-active flex h-12 w-16 flex-col items-center justify-center rounded-xl bg-muted text-muted-fg disabled:opacity-40"
                 >
                   <span className="text-lg">✕</span>
-                  <span className="text-[10px] font-medium">불참</span>
+                  <span className="text-xs font-medium">불참</span>
                 </button>
               </>
             )}
