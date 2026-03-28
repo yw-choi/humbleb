@@ -43,3 +43,27 @@
 - `confirm()` used for delete despite plan saying "no alert/confirm" — acceptable for admin-only actions, will replace with custom dialog in Phase 5 polish
 
 ---
+
+## Phase 3: Matchmaking
+
+**Goals defined:** 4
+**Iterations needed:** 1
+**Quality gates:** `pytest tests/ -v`, `npx tsc --noEmit`
+
+### What worked
+- Algorithm as pure functions with dataclass inputs — completely testable without DB
+- Brute-force approach is fast enough (~300 combos per round × 7 rounds)
+- Separating algorithm service from API router keeps both clean
+- 9 algorithm tests cover basic, constraint, and soft constraint scenarios
+- BottomSheet reused again for admin matchmaking UI
+
+### Key architectural decisions
+- Player swap via position string (e.g. "team_a_player1") — simple and flexible
+- Name lookup built per-request from members + guests tables — avoids denormalization
+- Existing matchmaking is fully deleted before regeneration — simpler than update-in-place
+
+### Quality gate gap
+- No integration test for the full matchmaking API flow (would need DB fixtures)
+- Algorithm correctness tested, but API serialization is only verified by tsc type check
+
+---

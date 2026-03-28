@@ -519,11 +519,11 @@ humbleb/
 10. APScheduler 보조 상태 전환 (lazy evaluation으로 대체, 추후 필요 시 추가)
 11. ✅ 카톡 공유용 정모 안내 텍스트 복사 버튼
 
-### Phase 3: 대진표
+### Phase 3: 대진표 ✅
 
-12. 대진표 알고리즘 구현 (matchmaking.py)
-13. 대진표 생성 API + 운영진 UI (DRAFT → 미리보기 → 제약조건/수동 수정 → 컨펌)
-15. 대진표 조회 화면 (CONFIRMED만 멤버에게 노출)
+12. ✅ 대진표 알고리즘 구현 (matchmaking.py) — brute-force, NTRP 밸런스, 혼복 우선, 제약조건
+13. ✅ 대진표 생성 API + 운영진 UI (DRAFT → 미리보기 → 수동 수정 → 컨펌)
+15. ✅ 대진표 조회 화면 (CONFIRMED만 멤버에게 노출)
 
 ### Phase 4: 경기결과 + 레이팅
 
