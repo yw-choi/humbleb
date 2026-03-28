@@ -67,3 +67,23 @@
 - Algorithm correctness tested, but API serialization is only verified by tsc type check
 
 ---
+
+## Phase 4: Game Results + Rating
+
+**Goals defined:** 4
+**Iterations needed:** 1
+**Quality gates:** `pytest tests/ -v`, `npx tsc --noEmit`
+
+### What worked
+- ELO as pure functions — trivially testable, no DB dependency
+- Score input with +/- buttons instead of numeric keypad — simpler UX, no validation needed
+- Context-aware detection using simple time comparison in client — no server-side push needed
+
+### Pitfall
+- Router prefix change (removing `prefix="/schedules"`) required updating all route paths — easy to miss one
+
+### Key decisions
+- ELO K-factor = 16 (conservative) — appropriate for casual club matches
+- Guest players get default 1500 rating but their rating doesn't persist — no Guest.internal_rating field
+
+---
