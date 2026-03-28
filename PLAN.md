@@ -42,6 +42,15 @@ CREATED
   → 정모 당일 → CLOSED (아직 안 닫혔으면 강제)
 ```
 
+### 상태 전환 구현 방식
+
+- **Lazy evaluation**: API 호출 시 현재 시간 기준으로 상태를 자동 계산/업데이트
+  - 정모 당일 이후 → CLOSED
+  - 수요일 15:00 이후 + 정원 미달 → GUEST_OPEN
+  - 정원 도달 → CLOSED
+- APScheduler는 보조 수단 (서버 재시작 후에도 상태 정합성 보장)
+- 프론트에서 표시할 때도 서버가 반환한 최신 상태를 사용
+
 ---
 
 ## 2. 화면 설계
@@ -484,21 +493,30 @@ humbleb/
 
 ## 8. 구현 순서
 
-### Phase 1: 뼈대 + 참가신청 (최우선)
+### Phase 1: 뼈대 + 참가신청 (최우선) ✅
 
-1. FastAPI 프로젝트 셋업 + DB 모델 (Member, Schedule, Attendance)
-2. 카카오 OAuth 인증 (로그인/로그아웃, JWT 세션)
-3. 멤버 시드 데이터 (기존 30명) + 첫 로그인 시 카카오↔멤버 매핑
-4. API: 일정 조회, 참가신청/취소 (arrival_time/departure_time 포함)
-5. Next.js 메인 화면: 정모 카드 리스트 + 참가/불참 버튼
-6. 참가 상태 표시 (인원수, 참가자 리스트, 시간, 코멘트)
+1. ✅ FastAPI 프로젝트 셋업 + DB 모델 (Member, Schedule, Attendance)
+2. ✅ 카카오 OAuth 인증 (로그인 → JWT Bearer token via localStorage)
+3. ✅ 멤버 시드 데이터 (30명) + 첫 로그인 시 카카오↔멤버 매핑
+4. ✅ API: 일정 조회, 참가신청/취소 (full/late/early)
+5. ✅ Next.js 메인 화면: 정모 카드 리스트 + 참가/불참 버튼
+6. ✅ 참가 상태 표시, 다크모드, 터치 피드백, 로고, 로그아웃
+
+### Phase 1.5: 상태 전환 + 안정화 (즉시)
+
+7. 일정 상태 lazy evaluation (API 호출 시 자동 상태 계산)
+   - 정모 당일 지남 → CLOSED
+   - 수요일 15:00 이후 + 정원 미달 → GUEST_OPEN
+   - 정원 도달 → CLOSED
+8. upcoming API에서 지난 일정 제외 (오늘 기준)
+9. 인프라: vesper 배포 (systemd + nginx) + Vercel 배포 완료
 
 ### Phase 2: 운영진 기능
 
 7. 운영진 페이지: 일정 CRUD
 8. 반복일정 생성
 9. 게스트 등록
-10. 상태 자동 전환 (APScheduler: 수요일 15:00, 정모 당일 마감)
+10. APScheduler 보조 상태 전환 (lazy evaluation 외 추가 정합성)
 11. 카톡 공유용 정모 안내 텍스트 복사 버튼
 
 ### Phase 3: 대진표

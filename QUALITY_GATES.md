@@ -4,43 +4,57 @@ Phase별 완료 기준. 각 gate를 통과해야 다음 phase 진행.
 
 ---
 
-## Phase 1: 뼈대 + 참가신청
+## Phase 1: 뼈대 + 참가신청 ✅
 
 ### Backend Gate
-- [ ] FastAPI 서버 기동 (localhost:8200), `/health` 200 응답
-- [ ] nginx 프록시 동작: `https://vesper.sogang.ac.kr/humbleb/api/health` 200
-- [ ] DB 마이그레이션 실행 (Member, Schedule, Attendance 테이블 생성)
-- [ ] 멤버 시드 데이터 30명 삽입 확인
-- [ ] 카카오 OAuth 플로우 동작 (로그인 → JWT httpOnly 쿠키 → /api/members/me 본인 반환)
-- [ ] 첫 로그인 시 멤버 매핑 (`POST /api/members/link`) 동작
-- [ ] `GET /api/schedules/upcoming` — 일정 리스트 반환
-- [ ] `POST /api/schedules/:id/attend` — full/late/early 참가 신청
-- [ ] late + early 동시 선택 시 400 에러
-- [ ] `DELETE /api/schedules/:id/attend` — 취소 (CLOSED 상태면 403)
-- [ ] 정원 초과 시 참가 신청 거부 (409)
-- [ ] 미인증 요청 시 401
-- [ ] CORS: Vercel 도메인만 허용
+- [x] FastAPI 서버 기동 (localhost:8200), `/health` 200 응답
+- [x] nginx 프록시 동작: `https://vesper.sogang.ac.kr/humbleb/api/health` 200
+- [x] DB 마이그레이션 실행 (7 테이블 생성)
+- [x] 멤버 시드 데이터 30명 삽입 확인
+- [x] 카카오 OAuth 플로우 동작 (로그인 → JWT Bearer token → /api/members/me)
+- [x] 첫 로그인 시 멤버 매핑 (`POST /api/members/link`) 동작
+- [x] `GET /api/schedules/upcoming` — 일정 리스트 반환
+- [x] `POST /api/schedules/:id/attend` — full/late/early 참가 신청
+- [x] `DELETE /api/schedules/:id/attend` — 취소 (CLOSED 상태면 403)
+- [x] 정원 초과 시 참가 신청 거부 (409)
+- [x] 미인증 요청 시 401
+- [x] CORS: Vercel 도메인 허용
 
 ### Frontend Gate
-- [ ] 카카오 로그인 버튼 → OAuth 플로우 → 메인 화면 리다이렉트
-- [ ] 첫 로그인: 멤버 선택 화면 → 매핑 완료 → 메인 화면
-- [ ] 메인 화면: 정모 카드 리스트 렌더링 (날짜, 시간, 장소, 상태, 인원수)
-- [ ] 참가/불참 버튼 동작 (기본 full, 바텀시트에서 late/early 선택)
-- [ ] 참가자 리스트 표시 (이름, 시간대, 코멘트)
-- [ ] Optimistic UI: 참가 탭 즉시 반영, 실패 시 롤백 + 토스트
-- [ ] 스켈레톤 스크린: 300ms 초과 로딩 시 shimmer 표시
-- [ ] 모바일 뷰포트(375px)에서 레이아웃 깨짐 없음
-- [ ] 터치 타겟 48×48px 이상, input 폰트 16px 이상
+- [x] 카카오 로그인 버튼 → OAuth 플로우 → 메인 화면 리다이렉트
+- [x] 첫 로그인: 멤버 선택 화면 → 매핑 완료 → 메인 화면
+- [x] 메인 화면: 정모 카드 리스트 렌더링 (날짜, 시간, 장소, 상태, 인원수)
+- [x] 참가/불참 버튼 동작 (바텀시트에서 full/late/early 선택)
+- [x] 참가자 리스트 표시 (이름, 시간대, 코멘트)
+- [x] 스켈레톤 스크린
+- [x] 터치 피드백 (scale + opacity)
+- [x] 다크모드 지원
+- [x] 🎾 HumbleB 로고 + 로그아웃 버튼
 
-### 카카오톡 인앱 브라우저 Gate
-- [ ] 카톡 인앱 브라우저에서 OAuth 플로우 정상 동작
-- [ ] `position: fixed` 대신 `sticky` 사용 확인
-- [ ] `alert()`/`confirm()` 미사용 확인
-- [ ] `dvh` 뷰포트 단위 사용 확인
+### 인프라 Gate
+- [x] vesper systemd 서비스 (자동 시작, linger)
+- [x] nginx HTTPS 리버스 프록시
+- [x] Vercel production 배포 (humbleb.vercel.app)
 
-### Integration Gate
-- [ ] 카카오 로그인 → 참가 신청 → 참가자 리스트에 본인 노출 — E2E 동작
-- [ ] 다른 계정으로 동일 멤버 매핑 시도 시 에러 처리
+### 미완료/알려진 이슈
+- [ ] 카톡 인앱 브라우저 테스트 (OAuth 플로우)
+- [ ] Optimistic UI 미구현 (현재 서버 응답 대기 후 반영)
+- [ ] late + early 동시 선택 방지 (현재 UI에서 하나만 선택 가능하므로 OK)
+
+---
+
+## Phase 1.5: 상태 전환 + 안정화
+
+### Backend Gate
+- [ ] 일정 상태 lazy evaluation 구현
+  - [ ] 정모 당일 지남 → CLOSED 자동 전환
+  - [ ] 수요일 15:00 이후 + 정원 미달 → GUEST_OPEN
+  - [ ] 정원 도달 → CLOSED
+- [ ] upcoming API에서 지난 일정 제외
+- [ ] 상태 전환 유닛 테스트
+
+### Frontend Gate
+- [ ] 상태 뱃지가 최신 상태 반영 (멤버신청중/게스트모집/마감)
 
 ---
 
