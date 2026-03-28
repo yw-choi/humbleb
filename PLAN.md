@@ -502,13 +502,13 @@ humbleb/
 5. ✅ Next.js 메인 화면: 정모 카드 리스트 + 참가/불참 버튼
 6. ✅ 참가 상태 표시, 다크모드, 터치 피드백, 로고, 로그아웃
 
-### Phase 1.5: 상태 전환 + 안정화 (즉시)
+### Phase 1.5: 상태 전환 + 안정화 (즉시) ✅
 
-7. 일정 상태 lazy evaluation (API 호출 시 자동 상태 계산)
+7. ✅ 일정 상태 lazy evaluation (API 호출 시 자동 상태 계산)
    - 정모 당일 지남 → CLOSED
    - 수요일 15:00 이후 + 정원 미달 → GUEST_OPEN
    - 정원 도달 → CLOSED
-8. upcoming API에서 지난 일정 제외 (오늘 기준)
+8. ✅ upcoming API에서 지난 일정 제외 (오늘 기준)
 9. 인프라: vesper 배포 (systemd + nginx) + Vercel 배포 완료
 
 ### Phase 2: 운영진 기능
